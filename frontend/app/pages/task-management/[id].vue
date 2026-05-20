@@ -100,6 +100,11 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 </button>
+                <button class="btn-icon text-sky-400 hover:text-sky-300" @click="openRunHistory(task)" title="运行记录">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </button>
                 <button class="btn-icon text-red-400 hover:text-red-300" @click="deleteTask(task.id)" title="删除">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -145,6 +150,7 @@
 
             <div class="mt-3 text-xs text-white/30">
               创建时间: {{ formatDate(task.createdAt) }}
+              <span v-if="latestRunIds[task.id]" class="ml-3">最近提交运行ID: {{ latestRunIds[task.id] }}</span>
             </div>
           </div>
         </div>
@@ -315,6 +321,114 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 运行记录模态框 -->
+    <Teleport to="body">
+      <div v-if="showRunHistoryModal" class="modal-overlay animate-fade-in">
+        <div class="flex items-center justify-center min-h-screen p-4">
+          <div class="modal-content animate-scale-in w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" @click.stop>
+            <div class="flex items-center justify-between mb-6">
+              <div>
+                <h3 class="text-xl font-semibold text-white">运行记录</h3>
+                <p class="mt-1 text-sm text-white/40">{{ selectedTaskForRuns?.taskName }}</p>
+              </div>
+              <button @click="closeRunHistory" class="btn-icon">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div class="overflow-y-auto pr-1">
+              <div v-if="loadingTaskRuns" class="flex justify-center items-center py-12">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+              </div>
+
+              <div v-else-if="taskRuns.length === 0" class="text-center py-12 text-white/40">
+                暂无运行记录
+              </div>
+
+              <div v-else class="space-y-3">
+                <div v-for="run in taskRuns" :key="run.id" class="rounded-lg border border-white/10 bg-white/5 p-4">
+                  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span :class="getRunStatusClass(run.status)" class="text-xs">
+                          {{ formatRunStatus(run.status) }}
+                        </span>
+                        <span class="text-xs text-white/50">#{{ run.id }}</span>
+                        <span class="text-xs text-white/50">{{ run.isIncrement ? '增量' : '全量' }}</span>
+                      </div>
+                      <dl class="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                          <dt class="text-xs text-white/40">提交时间</dt>
+                          <dd class="mt-1 text-sm text-white/80">{{ formatOptionalDate(run.submittedAt, '未提交') }}</dd>
+                        </div>
+                        <div>
+                          <dt class="text-xs text-white/40">开始时间</dt>
+                          <dd class="mt-1 text-sm text-white/80">{{ formatOptionalDate(run.startedAt, '未开始') }}</dd>
+                        </div>
+                        <div>
+                          <dt class="text-xs text-white/40">结束时间</dt>
+                          <dd class="mt-1 text-sm text-white/80">{{ formatOptionalDate(run.finishedAt, '未结束') }}</dd>
+                        </div>
+                        <div>
+                          <dt class="text-xs text-white/40">耗时</dt>
+                          <dd class="mt-1 text-sm text-white/80">{{ formatDuration(run.durationMs) }}</dd>
+                        </div>
+                      </dl>
+                      <div v-if="run.errorMessage" class="mt-3 rounded bg-red-500/10 px-3 py-2 text-sm text-red-200 break-all">
+                        {{ run.errorMessage }}
+                      </div>
+                    </div>
+                    <button class="btn-secondary shrink-0" @click="openRunLog(run)">查看日志</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 单次运行日志模态框 -->
+    <Teleport to="body">
+      <div v-if="showRunLogModal" class="modal-overlay animate-fade-in">
+        <div class="flex items-center justify-center min-h-screen p-4">
+          <div class="modal-content animate-scale-in w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col" @click.stop>
+            <div class="flex items-center justify-between mb-6">
+              <div>
+                <h3 class="text-xl font-semibold text-white">运行日志</h3>
+                <p class="mt-1 text-sm text-white/40">运行记录 #{{ selectedRun?.id }}</p>
+              </div>
+              <button @click="closeRunLog" class="btn-icon">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div class="overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-4 font-mono text-xs">
+              <div v-if="loadingRunLogs" class="flex justify-center items-center py-12">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+              </div>
+
+              <div v-else-if="taskRunLogs.length === 0" class="text-center py-12 text-white/40">
+                暂无运行日志
+              </div>
+
+              <div v-else class="space-y-2">
+                <div v-for="logLine in taskRunLogs" :key="logLine.id" class="grid grid-cols-1 gap-1 text-white/70 md:grid-cols-[180px_70px_minmax(0,1fr)]">
+                  <span class="text-white/40">{{ formatOptionalDate(logLine.loggedAt, '未记录') }}</span>
+                  <span :class="getLogLevelClass(logLine.level)">{{ logLine.level }}</span>
+                  <span class="break-words">{{ logLine.message }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -334,10 +448,19 @@ const loading = ref(true)
 const showCreateTaskModal = ref(false)
 const showEditTaskModal = ref(false)
 const showExecuteTaskModal = ref(false)
+const showRunHistoryModal = ref(false)
+const showRunLogModal = ref(false)
 const submitting = ref(false)
 const editingTaskId = ref(null)
 const currentTaskId = ref(null)
 const generatingStrm = ref({})
+const latestRunIds = ref({})
+const selectedTaskForRuns = ref(null)
+const selectedRun = ref(null)
+const taskRuns = ref([])
+const taskRunLogs = ref([])
+const loadingTaskRuns = ref(false)
+const loadingRunLogs = ref(false)
 const taskForm = ref({
   taskName: '',
   path: '',
@@ -459,6 +582,51 @@ const closeModal = () => {
 }
 
 const formatDate = (timestamp) => !timestamp || timestamp === 0 ? '未执行' : new Date(timestamp).toLocaleString('zh-CN')
+const formatOptionalDate = (value, emptyText) => {
+  if (value == null) return emptyText
+  if (value === 0) return emptyText
+  return new Date(value).toLocaleString('zh-CN')
+}
+
+const formatDuration = (durationMs) => {
+  if (durationMs == null) return '未完成'
+  if (durationMs < 1000) return `${durationMs} ms`
+  const seconds = Math.floor(durationMs / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  if (minutes === 0) return `${seconds} 秒`
+  return `${minutes} 分 ${remainingSeconds} 秒`
+}
+
+const formatRunStatus = (status) => {
+  const labels = {
+    SUBMITTED: '已提交',
+    RUNNING: '运行中',
+    SUCCESS: '成功',
+    FAILED: '失败'
+  }
+  return labels[status]
+}
+
+const getRunStatusClass = (status) => {
+  const classes = {
+    SUBMITTED: 'badge-info',
+    RUNNING: 'badge-warning',
+    SUCCESS: 'badge-success',
+    FAILED: 'badge-error'
+  }
+  return classes[status]
+}
+
+const getLogLevelClass = (level) => {
+  const classes = {
+    INFO: 'text-blue-300',
+    WARN: 'text-yellow-300',
+    ERROR: 'text-red-300',
+    DEBUG: 'text-white/40'
+  }
+  return classes[level]
+}
 
 const showExecuteModal = (taskId) => {
   currentTaskId.value = taskId
@@ -479,16 +647,78 @@ const executeTask = async (taskId, isIncremental) => {
       body: { isIncremental }
     })
     if (response.code === 200) {
+      latestRunIds.value[taskId] = response.data.runId
       const modeText = isIncremental ? '增量' : '全量'
-      alert(`任务已提交，正在后台执行${modeText}生成STRM文件...`)
+      alert(`任务已提交，正在后台执行${modeText}生成STRM文件，运行记录ID: ${response.data.runId}`)
+      if (selectedTaskForRuns.value?.id === taskId) {
+        await fetchTaskRuns(taskId)
+      }
     } else {
-      throw new Error(response.message || '提交任务失败')
+      throw new Error(response.message)
     }
   } catch (error) {
     logger.error('提交任务失败:', error)
-    alert(error.message || '提交任务失败，请稍后重试')
+    alert(error.message)
   } finally {
     generatingStrm.value[taskId] = false
+  }
+}
+
+const openRunHistory = async (task) => {
+  selectedTaskForRuns.value = task
+  showRunHistoryModal.value = true
+  await fetchTaskRuns(task.id)
+}
+
+const closeRunHistory = () => {
+  showRunHistoryModal.value = false
+  selectedTaskForRuns.value = null
+  taskRuns.value = []
+}
+
+const fetchTaskRuns = async (taskId) => {
+  try {
+    loadingTaskRuns.value = true
+    const response = await authenticatedApiCall(`/task-config/${taskId}/runs`, { method: 'GET' })
+    if (response.code === 200) {
+      taskRuns.value = response.data
+    } else {
+      throw new Error(response.message)
+    }
+  } catch (error) {
+    logger.error('获取运行记录失败:', error)
+    alert(error.message)
+  } finally {
+    loadingTaskRuns.value = false
+  }
+}
+
+const openRunLog = async (run) => {
+  selectedRun.value = run
+  showRunLogModal.value = true
+  await fetchRunLogs(run.id)
+}
+
+const closeRunLog = () => {
+  showRunLogModal.value = false
+  selectedRun.value = null
+  taskRunLogs.value = []
+}
+
+const fetchRunLogs = async (runId) => {
+  try {
+    loadingRunLogs.value = true
+    const response = await authenticatedApiCall(`/task-runs/${runId}/logs`, { method: 'GET' })
+    if (response.code === 200) {
+      taskRunLogs.value = response.data
+    } else {
+      throw new Error(response.message)
+    }
+  } catch (error) {
+    logger.error('获取运行日志失败:', error)
+    alert(error.message)
+  } finally {
+    loadingRunLogs.value = false
   }
 }
 

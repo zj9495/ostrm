@@ -18,8 +18,10 @@
 
 package com.hienao.openlist2strm.service;
 
+import com.hienao.openlist2strm.dto.task.TaskSubmitResponseDto;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.entity.TaskConfig;
+import com.hienao.openlist2strm.entity.TaskRun;
 import com.hienao.openlist2strm.exception.BusinessException;
 import com.hienao.openlist2strm.handler.FileProcessorChain;
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
@@ -31,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
@@ -53,6 +54,7 @@ public class TaskExecutionService {
   private final SystemConfigService systemConfigService;
   private final FileProcessorChain fileProcessorChain;
   private final Executor taskSubmitExecutor;
+  private final TaskRunService taskRunService;
 
   /**
    * 提交任务到线程池执行
@@ -60,70 +62,62 @@ public class TaskExecutionService {
    * @param taskId 任务ID
    * @param isIncrement 是否增量执行（可选参数）
    */
-  public void submitTask(Long taskId, Boolean isIncrement) {
+  public TaskSubmitResponseDto submitTask(Long taskId, Boolean isIncrement) {
     log.info("提交任务到线程池 - 任务ID: {}, 增量模式: {}", taskId, isIncrement);
+
+    TaskConfig taskConfig = getRunnableTaskConfig(taskId);
+    boolean useIncrement = resolveIsIncrement(taskConfig, isIncrement);
+    TaskRun taskRun = taskRunService.createRun(taskId, useIncrement);
 
     // 使用线程池异步执行任务
     taskSubmitExecutor.execute(
         () -> {
           try {
-            executeTaskSync(taskId, isIncrement);
+            executeTaskSync(taskConfig, useIncrement, taskRun.getId());
           } catch (Exception e) {
             log.error("任务执行失败 - 任务ID: {}, 错误信息: {}", taskId, e.getMessage(), e);
           }
         });
 
-    log.info("任务已成功提交到线程池 - 任务ID: {}", taskId);
+    log.info("任务已成功提交到线程池 - 任务ID: {}, 运行记录ID: {}", taskId, taskRun.getId());
+    return new TaskSubmitResponseDto(taskRun.getId(), "任务已提交执行");
   }
 
   /**
    * 同步执行任务（在线程池中调用）
    *
-   * @param taskId 任务ID
-   * @param isIncrement 是否增量执行（可选参数）
+   * @param taskConfig 任务配置
+   * @param useIncrement 是否增量执行
+   * @param taskRunId 任务运行记录ID
    */
-  private void executeTaskSync(Long taskId, Boolean isIncrement) {
+  private void executeTaskSync(TaskConfig taskConfig, boolean useIncrement, Long taskRunId) {
     try {
+      taskRunService.markRunning(taskRunId);
       log.info(
-          "开始执行任务 - 任务ID: {}, 增量模式: {}, 线程: {}",
-          taskId,
-          isIncrement,
+          "开始执行任务 - 任务ID: {}, 运行记录ID: {}, 增量模式: {}, 线程: {}",
+          taskConfig.getId(),
+          taskRunId,
+          useIncrement,
           Thread.currentThread().getName());
 
-      // 获取任务配置
-      TaskConfig taskConfig = taskConfigService.getById(taskId);
-      if (taskConfig == null) {
-        throw new BusinessException("任务配置不存在，ID: " + taskId);
-      }
-
-      // 检查任务是否启用
-      if (!Boolean.TRUE.equals(taskConfig.getIsActive())) {
-        throw new BusinessException("任务已禁用，无法执行，ID: " + taskId);
-      }
-
-      // 确定是否使用增量模式
-      boolean useIncrement;
-      if (isIncrement != null) {
-        // 如果传了参数，以传参为主
-        useIncrement = isIncrement;
-        log.info("使用传入的增量参数: {}", isIncrement);
-      } else {
-        // 如果没传参数，以任务配置为主
-        useIncrement = Boolean.TRUE.equals(taskConfig.getIsIncrement());
-        log.info("使用任务配置的增量参数: {}", useIncrement);
-      }
-
       // 更新任务开始执行时间
-      taskConfigService.updateLastExecTime(taskId, LocalDateTime.now());
+      taskConfigService.updateLastExecTime(taskConfig.getId(), LocalDateTime.now());
 
       // 执行具体的任务逻辑
-      executeTaskLogic(taskConfig, useIncrement);
+      executeTaskLogic(taskConfig, useIncrement, taskRunId);
+
+      taskRunService.markSuccess(taskRunId);
 
       log.info(
-          "任务执行完成 - 任务ID: {}, 任务名称: {}, 增量模式: {}", taskId, taskConfig.getTaskName(), useIncrement);
+          "任务执行完成 - 任务ID: {}, 任务名称: {}, 运行记录ID: {}, 增量模式: {}",
+          taskConfig.getId(),
+          taskConfig.getTaskName(),
+          taskRunId,
+          useIncrement);
 
     } catch (Exception e) {
-      log.error("任务执行失败 - 任务ID: {}, 错误信息: {}", taskId, e.getMessage(), e);
+      taskRunService.markFailed(taskRunId, e.getMessage());
+      log.error("任务执行失败 - 任务ID: {}, 错误信息: {}", taskConfig.getId(), e.getMessage(), e);
       throw new BusinessException("任务执行失败: " + e.getMessage(), e);
     }
   }
@@ -135,52 +129,8 @@ public class TaskExecutionService {
    * @param isIncrement 是否增量执行（可选参数）
    * @return CompletableFuture<Void>
    */
-  @Async("taskSubmitExecutor")
   public CompletableFuture<Void> executeTask(Long taskId, Boolean isIncrement) {
-    try {
-      log.info(
-          "开始执行任务 - 任务ID: {}, 增量模式: {}, 线程: {}",
-          taskId,
-          isIncrement,
-          Thread.currentThread().getName());
-
-      // 获取任务配置
-      TaskConfig taskConfig = taskConfigService.getById(taskId);
-      if (taskConfig == null) {
-        throw new BusinessException("任务配置不存在，ID: " + taskId);
-      }
-
-      // 检查任务是否启用
-      if (!Boolean.TRUE.equals(taskConfig.getIsActive())) {
-        throw new BusinessException("任务已禁用，无法执行，ID: " + taskId);
-      }
-
-      // 确定是否使用增量模式
-      boolean useIncrement;
-      if (isIncrement != null) {
-        // 如果传了参数，以传参为主
-        useIncrement = isIncrement;
-        log.info("使用传入的增量参数: {}", isIncrement);
-      } else {
-        // 如果没传参数，以任务配置为主
-        useIncrement = Boolean.TRUE.equals(taskConfig.getIsIncrement());
-        log.info("使用任务配置的增量参数: {}", useIncrement);
-      }
-
-      // 更新任务开始执行时间
-      taskConfigService.updateLastExecTime(taskId, LocalDateTime.now());
-
-      // 执行具体的任务逻辑
-      executeTaskLogic(taskConfig, useIncrement);
-
-      log.info(
-          "任务执行完成 - 任务ID: {}, 任务名称: {}, 增量模式: {}", taskId, taskConfig.getTaskName(), useIncrement);
-
-    } catch (Exception e) {
-      log.error("任务执行失败 - 任务ID: {}, 错误信息: {}", taskId, e.getMessage(), e);
-      throw new BusinessException("任务执行失败: " + e.getMessage(), e);
-    }
-
+    submitTask(taskId, isIncrement);
     return CompletableFuture.completedFuture(null);
   }
 
@@ -191,8 +141,9 @@ public class TaskExecutionService {
    * @param taskConfig 任务配置
    * @param isIncrement 是否增量执行
    */
-  private void executeTaskLogic(TaskConfig taskConfig, boolean isIncrement) {
+  private void executeTaskLogic(TaskConfig taskConfig, boolean isIncrement, Long taskRunId) {
     log.info("开始执行任务逻辑: {}, 增量模式: {}", taskConfig.getTaskName(), isIncrement);
+    taskRunService.appendLog(taskRunId, "INFO", "开始执行任务逻辑: " + taskConfig.getTaskName());
 
     try {
       // 1. 获取OpenList配置
@@ -200,7 +151,7 @@ public class TaskExecutionService {
 
       // 2. 使用 Handler 链处理方式执行任务
       log.info("使用 Handler 链处理方式执行任务");
-      executeTaskWithHandlerChain(taskConfig, openlistConfig, isIncrement);
+      executeTaskWithHandlerChain(taskConfig, openlistConfig, isIncrement, taskRunId);
 
     } catch (Exception e) {
       log.error("任务执行失败: {}, 错误: {}", taskConfig.getTaskName(), e.getMessage(), e);
@@ -210,25 +161,30 @@ public class TaskExecutionService {
 
   /** 使用 Handler 链执行任务（新方式） */
   private void executeTaskWithHandlerChain(
-      TaskConfig taskConfig, OpenlistConfig openlistConfig, boolean isIncrement) {
+      TaskConfig taskConfig, OpenlistConfig openlistConfig, boolean isIncrement, Long taskRunId) {
 
     // 1. 先获取目录文件列表（在清空目录之前验证 OpenList API 可用性）
     List<OpenlistApiService.OpenlistFile> allFiles;
     try {
       log.info("开始获取 OpenList 文件列表: {}", taskConfig.getPath());
+      taskRunService.appendLog(taskRunId, "INFO", "开始获取 OpenList 文件列表: " + taskConfig.getPath());
       allFiles = openlistApiService.getAllFilesRecursively(openlistConfig, taskConfig.getPath());
     } catch (Exception e) {
       log.error("获取 OpenList 文件列表失败，终止任务执行，STRM 目录未受影响: {}", e.getMessage(), e);
+      taskRunService.appendLog(taskRunId, "ERROR", "获取 OpenList 文件列表失败: " + e.getMessage());
       throw new BusinessException("获取 OpenList 文件列表失败，任务终止: " + e.getMessage(), e);
     }
 
     // 2. 验证文件列表有效性（空列表也继续执行，可能该路径下确实没有文件）
     log.info("成功获取 OpenList 文件列表，共 {} 个文件/目录", allFiles.size());
+    taskRunService.appendLog(taskRunId, "INFO", "成功获取 OpenList 文件列表，共 " + allFiles.size() + " 个文件/目录");
 
     // 3. 文件列表获取成功后，全量模式下再清空 STRM 目录
     if (!isIncrement) {
       log.info("全量执行模式，文件列表获取成功（共 {} 个），开始清理STRM目录: {}", allFiles.size(), taskConfig.getStrmPath());
+      taskRunService.appendLog(taskRunId, "INFO", "全量执行模式，开始清理STRM目录: " + taskConfig.getStrmPath());
       strmFileService.clearStrmDirectory(taskConfig.getStrmPath());
+      taskRunService.appendLog(taskRunId, "INFO", "STRM目录清理完成: " + taskConfig.getStrmPath());
     }
 
     // 4. 创建处理上下文
@@ -241,6 +197,7 @@ public class TaskExecutionService {
     // 保存原始文件列表，用于 OrphanCleanupHandler 进行孤立文件检查
     context.setAttribute("originalFiles", allFiles);
     context.setAttribute("discoveredFiles", allFiles);
+    context.setAttribute("taskRunId", taskRunId);
     context.getStats().setTotalFiles(allFiles.size());
 
     // 5. 过滤出视频文件
@@ -258,10 +215,11 @@ public class TaskExecutionService {
     int processedCount = 0;
     int scrapSkippedCount = 0;
 
+    taskRunService.appendLog(taskRunId, "INFO", "Handler 链开始处理视频文件，共 " + videoFiles.size() + " 个");
     for (OpenlistApiService.OpenlistFile videoFile : videoFiles) {
       // 构建单个文件的上下文
       FileProcessingContext fileContext =
-          createFileContext(context, videoFile, openlistConfig, scrapingConfig);
+          createFileContext(context, videoFile, openlistConfig, scrapingConfig, taskRunId);
 
       // 执行处理器链
       fileProcessorChain.execute(fileContext);
@@ -276,10 +234,15 @@ public class TaskExecutionService {
     }
 
     log.info("Handler 链处理完成: 处理 {} 个视频文件, 跳过 {} 个", processedCount, scrapSkippedCount);
+    taskRunService.appendLog(
+        taskRunId,
+        "INFO",
+        "Handler 链处理完成: 处理 " + processedCount + " 个视频文件, 跳过 " + scrapSkippedCount + " 个");
 
     // 8. 增量模式下清理孤立文件
     if (isIncrement) {
       log.info("增量执行模式，开始清理孤立的STRM文件");
+      taskRunService.appendLog(taskRunId, "INFO", "增量执行模式，开始清理孤立的STRM文件");
       int cleanedCount =
           strmFileService.cleanOrphanedStrmFiles(
               taskConfig.getStrmPath(),
@@ -288,6 +251,7 @@ public class TaskExecutionService {
               taskConfig.getRenameRegex(),
               openlistConfig);
       log.info("清理了 {} 个孤立的STRM文件", cleanedCount);
+      taskRunService.appendLog(taskRunId, "INFO", "清理了 " + cleanedCount + " 个孤立的STRM文件");
     }
   }
 
@@ -296,7 +260,8 @@ public class TaskExecutionService {
       FileProcessingContext parentContext,
       OpenlistApiService.OpenlistFile videoFile,
       OpenlistConfig openlistConfig,
-      Map<String, Object> scrapingConfig) {
+      Map<String, Object> scrapingConfig,
+      Long taskRunId) {
 
     // 计算相对路径
     String relativePath =
@@ -326,19 +291,46 @@ public class TaskExecutionService {
                 })
             .toList();
 
-    return FileProcessingContext.builder()
-        .openlistConfig(openlistConfig)
-        .taskConfig(parentContext.getTaskConfig())
-        .currentFile(videoFile)
-        .relativePath(relativePath)
-        .saveDirectory(saveDirectory)
-        .baseFileName(baseFileName)
-        .directoryFiles(currentDirFiles)
-        .attributes(
-            scrapingConfig != null
-                ? new java.util.HashMap<>(scrapingConfig)
-                : new java.util.HashMap<>())
-        .build();
+    FileProcessingContext fileContext =
+        FileProcessingContext.builder()
+            .openlistConfig(openlistConfig)
+            .taskConfig(parentContext.getTaskConfig())
+            .currentFile(videoFile)
+            .relativePath(relativePath)
+            .saveDirectory(saveDirectory)
+            .baseFileName(baseFileName)
+            .directoryFiles(currentDirFiles)
+            .attributes(
+                scrapingConfig != null
+                    ? new java.util.HashMap<>(scrapingConfig)
+                    : new java.util.HashMap<>())
+            .build();
+    fileContext.setAttribute("taskRunId", taskRunId);
+    return fileContext;
+  }
+
+  private TaskConfig getRunnableTaskConfig(Long taskId) {
+    TaskConfig taskConfig = taskConfigService.getById(taskId);
+    if (taskConfig == null) {
+      throw new BusinessException("任务配置不存在，ID: " + taskId);
+    }
+
+    if (!Boolean.TRUE.equals(taskConfig.getIsActive())) {
+      throw new BusinessException("任务已禁用，无法执行，ID: " + taskId);
+    }
+
+    return taskConfig;
+  }
+
+  private boolean resolveIsIncrement(TaskConfig taskConfig, Boolean isIncrement) {
+    if (isIncrement != null) {
+      log.info("使用传入的增量参数: {}", isIncrement);
+      return isIncrement;
+    }
+
+    boolean useIncrement = Boolean.TRUE.equals(taskConfig.getIsIncrement());
+    log.info("使用任务配置的增量参数: {}", useIncrement);
+    return useIncrement;
   }
 
   /** 移除文件扩展名 */

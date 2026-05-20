@@ -40,6 +40,20 @@ compose() {
     "${DOCKER_COMPOSE[@]}" "$@"
 }
 
+dev_compose_running() {
+    [ -f "docker-compose.dev.yml" ] &&
+        compose -f docker-compose.dev.yml ps --services --filter status=running 2> /dev/null |
+            grep -Eq '^(frontend|backend|proxy)$'
+}
+
+current_compose() {
+    if dev_compose_running; then
+        compose -f docker-compose.dev.yml "$@"
+    else
+        compose "$@"
+    fi
+}
+
 check_dependencies() {
     print_step "检查依赖..."
 
@@ -75,6 +89,18 @@ setup_environment() {
         print_success "已从 .env.docker.example 创建 .env"
     fi
 
+    if ! grep -q '^FRONTEND_DEV_IMAGE=' .env; then
+        printf '\nFRONTEND_DEV_IMAGE=node:20\n' >> .env
+    fi
+
+    if ! grep -q '^BACKEND_DEV_IMAGE=' .env; then
+        printf 'BACKEND_DEV_IMAGE=gradle:8.12.1-jdk21-noble\n' >> .env
+    fi
+
+    if ! grep -q '^PROXY_DEV_IMAGE=' .env; then
+        printf 'PROXY_DEV_IMAGE=caddy:2\n' >> .env
+    fi
+
     print_success "环境配置完成"
 }
 
@@ -93,14 +119,49 @@ build_image() {
 }
 
 create_dev_compose_file() {
+    cat > Caddyfile.dev << EOF
+:80 {
+    handle /api/* {
+        reverse_proxy backend:8080
+    }
+
+    handle /ws/* {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        reverse_proxy frontend:3000
+    }
+}
+EOF
+
     cat > docker-compose.dev.yml << EOF
 services:
-  app:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    container_name: ${CONTAINER_NAME}
-    hostname: app
+  frontend:
+    image: \${FRONTEND_DEV_IMAGE}
+    container_name: ${CONTAINER_NAME}-frontend
+    hostname: frontend
+    working_dir: /app
+    command: >
+      sh -c "if [ ! -d node_modules/nuxt ]; then npm ci --prefer-offline --no-audit --no-fund; fi &&
+             npm run dev -- --host 0.0.0.0"
+    environment:
+      NUXT_PUBLIC_APP_VERSION: dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - \${HOME}/.npm:/root/.npm
+    restart: unless-stopped
+
+  backend:
+    image: \${BACKEND_DEV_IMAGE}
+    container_name: ${CONTAINER_NAME}-backend
+    hostname: backend
+    working_dir: /workspace
+    command: >
+      sh -c "gradle classes && (gradle -t classes & gradle bootRun)"
     environment:
       SPRING_PROFILES_ACTIVE: dev
       LOG_PATH: /maindata/log
@@ -109,25 +170,46 @@ services:
       USER_INFO_PATH: /maindata/config/userInfo.json
       FRONTEND_LOGS_PATH: /maindata/log/frontend
     ports:
-      - "${DEFAULT_PORT}:80"
-      - "3000:3000"
       - "8080:8080"
     volumes:
+      - ./backend:/workspace
+      - \${HOME}/.gradle:/home/gradle/.gradle
       - \${LOG_PATH_HOST}:/maindata/log
       - \${CONFIG_PATH_HOST}:/maindata/config
       - \${DB_PATH_HOST}:/maindata/db
-      - \${STRM_PATH_HOST}:/app/backend/strm
+      - \${STRM_PATH_HOST}:/workspace/strm
     restart: unless-stopped
+
+  proxy:
+    image: \${PROXY_DEV_IMAGE}
+    container_name: ${CONTAINER_NAME}
+    hostname: app
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "${DEFAULT_PORT}:80"
+    volumes:
+      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped
+
+volumes:
+  frontend_node_modules:
 EOF
 }
 
 start_services() {
     local compose_file="$1"
+    local rebuild="${2:-false}"
 
     print_step "启动服务..."
 
     if [ "$compose_file" = "docker-compose.dev.yml" ]; then
-        compose -f docker-compose.dev.yml up -d
+        if [ "$rebuild" = "true" ]; then
+            compose -f docker-compose.dev.yml up -d --build --force-recreate --remove-orphans
+        else
+            compose -f docker-compose.dev.yml up -d --remove-orphans
+        fi
     else
         compose up -d
     fi
@@ -158,16 +240,16 @@ health_check() {
 }
 
 show_status() {
-    compose ps
+    current_compose ps
 }
 
 show_logs() {
     local follow="$1"
 
     if [ "$follow" = "true" ]; then
-        compose logs -f
+        current_compose logs -f
     else
-        compose logs --tail=100
+        current_compose logs --tail=100
     fi
 }
 
@@ -186,10 +268,10 @@ cleanup() {
     local deep_clean="$1"
 
     if [ "$deep_clean" = "true" ]; then
-        compose down --rmi all --volumes
-        rm -f docker-compose.dev.yml
+        current_compose down --rmi all --volumes
+        rm -f docker-compose.dev.yml Caddyfile.dev
     else
-        compose down
+        current_compose down
     fi
 
     print_success "清理完成"
@@ -214,6 +296,7 @@ Ostrm Docker 开发脚本
   install              初始化开发环境
   start, up            启动服务
   start-dev, up-dev    以开发配置启动服务
+  start-dev --build    重新构建镜像后以开发配置启动服务
   stop, down           停止服务
   restart              重启服务
   build                构建镜像
@@ -270,17 +353,21 @@ main() {
             check_dependencies
             setup_environment
             create_dev_compose_file
-            start_services "docker-compose.dev.yml"
+            if [ "${1:-}" = "--build" ] || [ "${1:-}" = "--rebuild" ]; then
+                start_services "docker-compose.dev.yml" true
+            else
+                start_services "docker-compose.dev.yml"
+            fi
             show_status
             ;;
         stop|down)
             check_dependencies
-            compose down
+            current_compose down
             print_success "服务已停止"
             ;;
         restart)
             check_dependencies
-            compose restart
+            current_compose restart
             print_success "服务已重启"
             ;;
         build)

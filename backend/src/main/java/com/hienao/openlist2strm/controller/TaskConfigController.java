@@ -2,9 +2,13 @@ package com.hienao.openlist2strm.controller;
 
 import com.hienao.openlist2strm.dto.ApiResponse;
 import com.hienao.openlist2strm.dto.task.TaskConfigDto;
+import com.hienao.openlist2strm.dto.task.TaskRunDto;
+import com.hienao.openlist2strm.dto.task.TaskSubmitResponseDto;
 import com.hienao.openlist2strm.entity.TaskConfig;
+import com.hienao.openlist2strm.entity.TaskRun;
 import com.hienao.openlist2strm.service.TaskConfigService;
 import com.hienao.openlist2strm.service.TaskExecutionService;
+import com.hienao.openlist2strm.service.TaskRunService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +39,7 @@ public class TaskConfigController {
 
   private final TaskConfigService taskConfigService;
   private final TaskExecutionService taskExecutionService;
+  private final TaskRunService taskRunService;
 
   /** 查询所有配置 */
   @GetMapping
@@ -170,12 +175,27 @@ public class TaskConfigController {
   /** 提交任务执行 */
   @PostMapping("/{id}/submit")
   @Operation(summary = "提交任务执行", description = "将指定ID的任务提交到线程池中执行")
-  public ResponseEntity<ApiResponse<String>> submitTask(
+  public ResponseEntity<ApiResponse<TaskSubmitResponseDto>> submitTask(
       @Parameter(description = "任务配置ID", required = true) @PathVariable Long id,
       @RequestBody(required = false) TaskSubmitRequest request) {
     Boolean isIncremental = request != null ? request.getIsIncremental() : null;
-    taskExecutionService.submitTask(id, isIncremental);
-    return ResponseEntity.ok(ApiResponse.success("任务已提交执行"));
+    TaskSubmitResponseDto response = taskExecutionService.submitTask(id, isIncremental);
+    return ResponseEntity.ok(ApiResponse.success(response));
+  }
+
+  /** 查询任务运行记录 */
+  @GetMapping("/{id}/runs")
+  @Operation(summary = "查询任务运行记录", description = "查询指定任务的运行记录列表")
+  public ResponseEntity<ApiResponse<List<TaskRunDto>>> getTaskRuns(
+      @Parameter(description = "任务配置ID", required = true) @PathVariable Long id) {
+    TaskConfig config = taskConfigService.getById(id);
+    if (config == null) {
+      return ResponseEntity.ok(ApiResponse.error(404, "配置不存在"));
+    }
+    List<TaskRun> taskRuns = taskRunService.getRunsByTaskConfigId(id);
+    List<TaskRunDto> taskRunDtos =
+        taskRuns.stream().map(this::convertToTaskRunDto).collect(Collectors.toList());
+    return ResponseEntity.ok(ApiResponse.success(taskRunDtos));
   }
 
   /** 更新状态请求体 */
@@ -229,6 +249,13 @@ public class TaskConfigController {
     TaskConfig config = new TaskConfig();
     BeanUtils.copyProperties(dto, config);
     return config;
+  }
+
+  /** 运行记录实体转DTO */
+  private TaskRunDto convertToTaskRunDto(TaskRun taskRun) {
+    TaskRunDto dto = new TaskRunDto();
+    BeanUtils.copyProperties(taskRun, dto);
+    return dto;
   }
 
   /**

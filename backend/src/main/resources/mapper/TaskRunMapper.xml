@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hienao.openlist2strm.mapper.TaskRunMapper">
+
+    <resultMap id="TaskRunResultMap" type="com.hienao.openlist2strm.entity.TaskRun">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="task_config_id" property="taskConfigId" jdbcType="BIGINT"/>
+        <result column="is_increment" property="isIncrement" jdbcType="BOOLEAN"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="submitted_at" property="submittedAt" jdbcType="TIMESTAMP"/>
+        <result column="started_at" property="startedAt" jdbcType="TIMESTAMP"/>
+        <result column="finished_at" property="finishedAt" jdbcType="TIMESTAMP"/>
+        <result column="duration_ms" property="durationMs" jdbcType="BIGINT"/>
+        <result column="error_message" property="errorMessage" jdbcType="VARCHAR"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <resultMap id="TaskRunLogResultMap" type="com.hienao.openlist2strm.entity.TaskRunLog">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="task_run_id" property="taskRunId" jdbcType="BIGINT"/>
+        <result column="logged_at" property="loggedAt" jdbcType="TIMESTAMP"/>
+        <result column="level" property="level" jdbcType="VARCHAR"/>
+        <result column="message" property="message" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Task_Run_Column_List">
+        id, task_config_id, is_increment, status, submitted_at, started_at, finished_at, duration_ms, error_message, created_at, updated_at
+    </sql>
+
+    <sql id="Task_Run_Log_Column_List">
+        id, task_run_id, logged_at, level, message
+    </sql>
+
+    <insert id="insertRun" parameterType="com.hienao.openlist2strm.entity.TaskRun" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO task_run (
+            task_config_id,
+            is_increment,
+            status,
+            submitted_at,
+            started_at,
+            finished_at,
+            duration_ms,
+            error_message
+        ) VALUES (
+            #{taskConfigId},
+            #{isIncrement},
+            #{status},
+            #{submittedAt},
+            #{startedAt},
+            #{finishedAt},
+            #{durationMs},
+            #{errorMessage}
+        )
+    </insert>
+
+    <select id="selectRunById" parameterType="java.lang.Long" resultMap="TaskRunResultMap">
+        SELECT
+        <include refid="Task_Run_Column_List"/>
+        FROM task_run
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectRunsByTaskConfigId" parameterType="java.lang.Long" resultMap="TaskRunResultMap">
+        SELECT
+        <include refid="Task_Run_Column_List"/>
+        FROM task_run
+        WHERE task_config_id = #{taskConfigId}
+        ORDER BY submitted_at DESC, id DESC
+    </select>
+
+    <update id="updateRunById" parameterType="com.hienao.openlist2strm.entity.TaskRun">
+        UPDATE task_run
+        <set>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="startedAt != null">
+                started_at = #{startedAt},
+            </if>
+            <if test="finishedAt != null">
+                finished_at = #{finishedAt},
+            </if>
+            <if test="durationMs != null">
+                duration_ms = #{durationMs},
+            </if>
+            <if test="errorMessage != null">
+                error_message = #{errorMessage},
+            </if>
+            updated_at = CURRENT_TIMESTAMP,
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <insert id="insertRunLog" parameterType="com.hienao.openlist2strm.entity.TaskRunLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO task_run_log (
+            task_run_id,
+            logged_at,
+            level,
+            message
+        ) VALUES (
+            #{taskRunId},
+            #{loggedAt},
+            #{level},
+            #{message}
+        )
+    </insert>
+
+    <select id="selectLogsByTaskRunId" parameterType="java.lang.Long" resultMap="TaskRunLogResultMap">
+        SELECT
+        <include refid="Task_Run_Log_Column_List"/>
+        FROM task_run_log
+        WHERE task_run_id = #{taskRunId}
+        ORDER BY id ASC
+    </select>
+</mapper>

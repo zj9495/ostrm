@@ -67,6 +67,14 @@ tasks.withType<BootJar> {
     archiveFileName.set("openlisttostrm.jar")
 }
 
+tasks.register("resolveDependencies") {
+    description = "Resolves dependency artifacts for Docker layer caching."
+    doLast {
+        configurations.compileClasspath.get().resolve()
+        configurations.runtimeClasspath.get().resolve()
+    }
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
 }

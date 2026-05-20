@@ -11,7 +11,7 @@ WORKDIR /app/frontend
 
 # Install dependencies with BuildKit cache mount for faster builds
 COPY frontend/package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,id=ostrm-npm-cache,target=/root/.npm,sharing=locked \
     npm ci --prefer-offline --no-audit --no-fund --omit=dev && \
     rm -rf /tmp/*
 
@@ -30,19 +30,25 @@ WORKDIR $WORKDIR
 # Copy gradle configuration files
 COPY backend/build.gradle.kts backend/settings.gradle.kts backend/gradle.properties ./
 
-# Download dependencies with BuildKit cache mount for faster builds
-RUN --mount=type=cache,target=/root/.gradle \
+# Download dependency artifacts with BuildKit cache mount for faster builds
+RUN --mount=type=cache,id=ostrm-gradle-cache,target=/root/.gradle,sharing=locked \
     echo "=== Downloading dependencies ===" && \
-    gradle --refresh-dependencies dependencies --configuration compileClasspath
+    gradle \
+        --no-daemon \
+        --no-configuration-cache \
+        --build-cache \
+        resolveDependencies
 
 # Copy source code
 COPY backend/src ./src
 
 # Build application with Gradle cache mount
-RUN --mount=type=cache,target=/root/.gradle \
+RUN --mount=type=cache,id=ostrm-gradle-cache,target=/root/.gradle,sharing=locked \
     echo "=== Building application ===" && \
     gradle \
         --no-daemon \
+        --no-configuration-cache \
+        --offline \
         --build-cache \
         bootJar -x test && \
     mv $WORKDIR/build/libs/openlisttostrm.jar /openlisttostrm.jar && \
