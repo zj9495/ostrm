@@ -2,6 +2,7 @@ package com.hienao.openlist2strm.handler;
 
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import com.hienao.openlist2strm.service.OpenlistApiService;
+import com.hienao.openlist2strm.service.TaskRunService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -29,8 +30,10 @@ import org.springframework.stereotype.Component;
 public class FileProcessorChain {
 
   private final List<FileProcessorHandler> handlers;
+  private final TaskRunService taskRunService;
 
-  public FileProcessorChain(List<FileProcessorHandler> handlers) {
+  public FileProcessorChain(List<FileProcessorHandler> handlers, TaskRunService taskRunService) {
+    this.taskRunService = taskRunService;
     // 按 Order 排序
     this.handlers =
         handlers.stream()
@@ -62,23 +65,89 @@ public class FileProcessorChain {
           continue;
         }
 
-        ProcessingResult handlerResult = handler.process(context);
+        FileProcessingResult handlerResult = handler.process(context);
 
         // 记录处理结果
-        log.debug("处理器 {} 处理结果: {}", handler.getClass().getSimpleName(), handlerResult);
+        log.debug(
+            "处理器 {} 处理结果: {}", handler.getClass().getSimpleName(), handlerResult.getStatus());
+        appendFileResultLog(context, handler, handlerResult);
 
         // 如果任何处理器失败，整体结果为失败
-        if (handlerResult == ProcessingResult.FAILED) {
+        if (handlerResult.isFailed()) {
           overallResult = ProcessingResult.FAILED;
         }
 
       } catch (Exception e) {
         log.error("处理器 {} 执行失败: {}", handler.getClass().getSimpleName(), e.getMessage(), e);
+        appendHandlerExceptionLog(context, handler, e);
         overallResult = ProcessingResult.FAILED;
       }
     }
 
     return overallResult;
+  }
+
+  private void appendFileResultLog(
+      FileProcessingContext context, FileProcessorHandler handler, FileProcessingResult result) {
+    if (!result.isSkipped() && !result.isFailed()) {
+      return;
+    }
+
+    Long taskRunId = context.getAttribute("taskRunId");
+    if (taskRunId == null) {
+      return;
+    }
+
+    String filePath = context.getCurrentFile().getPath();
+    String handlerName = handler.getClass().getSimpleName();
+    if (result.isSkipped()) {
+      taskRunService.appendLog(
+          taskRunId,
+          "WARN",
+          "文件跳过: "
+              + filePath
+              + "，处理器: "
+              + handlerName
+              + "，原因: "
+              + result.getReason());
+      return;
+    }
+
+    taskRunService.appendLog(
+        taskRunId,
+        "ERROR",
+        "文件失败: "
+            + filePath
+            + "，处理器: "
+            + handlerName
+            + "，原因: "
+            + result.getReason());
+  }
+
+  private void appendHandlerExceptionLog(
+      FileProcessingContext context, FileProcessorHandler handler, Exception exception) {
+    Long taskRunId = context.getAttribute("taskRunId");
+    if (taskRunId == null) {
+      return;
+    }
+
+    taskRunService.appendLog(
+        taskRunId,
+        "ERROR",
+        "文件失败: "
+            + context.getCurrentFile().getPath()
+            + "，处理器: "
+            + handler.getClass().getSimpleName()
+            + "，原因: "
+            + exceptionReason(exception));
+  }
+
+  private String exceptionReason(Exception exception) {
+    String message = exception.getMessage();
+    if (message == null || message.trim().isEmpty()) {
+      return exception.getClass().getSimpleName();
+    }
+    return message;
   }
 
   /** 检查处理器是否支持当前文件 */

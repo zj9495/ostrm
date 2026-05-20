@@ -43,40 +43,48 @@ public class ImageDownloadHandler implements FileProcessorHandler {
   // ==================== 接口实现 ====================
 
   @Override
-  public ProcessingResult process(FileProcessingContext context) {
+  public FileProcessingResult process(FileProcessingContext context) {
     try {
       // 1. 检查配置是否启用
       if (!isImageScrapingEnabled(context)) {
-        context.getStats().incrementSkipped();
-        return ProcessingResult.SKIPPED;
+        return FileProcessingResult.success();
       }
 
       // 2. 处理海报文件
-      ProcessingResult posterResult = processImage(context, "-poster.jpg", "海报");
+      FileProcessingResult posterResult = processImage(context, "-poster.jpg", "海报");
 
       // 3. 处理背景图文件
-      ProcessingResult backdropResult = processImage(context, "-fanart.jpg", "背景图");
+      FileProcessingResult backdropResult = processImage(context, "-fanart.jpg", "背景图");
 
       // 4. 处理缩略图文件
-      ProcessingResult thumbResult = processImage(context, "-thumb.jpg", "缩略图");
+      FileProcessingResult thumbResult = processImage(context, "-thumb.jpg", "缩略图");
 
       // 5. 降级处理：如果没有找到特定命名的图片，下载任意图片文件
-      ProcessingResult arbitraryImageResult = processArbitraryImages(context);
+      FileProcessingResult arbitraryImageResult = processArbitraryImages(context);
 
       // 综合结果
-      if (posterResult == ProcessingResult.FAILED
-          || backdropResult == ProcessingResult.FAILED
-          || thumbResult == ProcessingResult.FAILED
-          || arbitraryImageResult == ProcessingResult.FAILED) {
-        return ProcessingResult.FAILED;
+      if (posterResult.isFailed()
+          || backdropResult.isFailed()
+          || thumbResult.isFailed()
+          || arbitraryImageResult.isFailed()) {
+        return FileProcessingResult.failed(
+            firstReason(posterResult, backdropResult, thumbResult, arbitraryImageResult));
       }
 
-      return ProcessingResult.SUCCESS;
+      if (posterResult.isSkipped()
+          && backdropResult.isSkipped()
+          && thumbResult.isSkipped()
+          && arbitraryImageResult.isSkipped()) {
+        return FileProcessingResult.skipped(
+            firstReason(posterResult, backdropResult, thumbResult, arbitraryImageResult));
+      }
+
+      return FileProcessingResult.success();
 
     } catch (Exception e) {
       log.error("图片文件处理失败: {}", context.getBaseFileName(), e);
       context.getStats().incrementFailed();
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("图片文件处理失败: " + e.getMessage());
     }
   }
 
@@ -88,7 +96,7 @@ public class ImageDownloadHandler implements FileProcessorHandler {
   // ==================== 图片处理 ====================
 
   /** 处理单个图片文件 */
-  private ProcessingResult processImage(
+  private FileProcessingResult processImage(
       FileProcessingContext context, String suffix, String description) {
 
     String imageFileName = context.getBaseFileName() + suffix;
@@ -98,7 +106,7 @@ public class ImageDownloadHandler implements FileProcessorHandler {
     if (Files.exists(localPath)) {
       log.debug("本地{}文件已存在，跳过: {}", description, imageFileName);
       context.getStats().incrementSkipped();
-      return ProcessingResult.SKIPPED;
+      return FileProcessingResult.skipped("本地" + description + "文件已存在: " + imageFileName);
     }
 
     // 2. 从 OpenList 下载
@@ -116,25 +124,28 @@ public class ImageDownloadHandler implements FileProcessorHandler {
 
           log.info("从 OpenList 下载{}文件成功: {}", description, imageFileName);
           context.getStats().incrementProcessed();
-          return ProcessingResult.SUCCESS;
+          return FileProcessingResult.success();
         }
       } catch (Exception e) {
         log.warn("从 OpenList 下载{}文件失败: {}", description, imageFileName, e);
+        return FileProcessingResult.failed(
+            "从 OpenList 下载" + description + "文件失败: " + e.getMessage());
       }
     }
 
     // 3. 图片文件不执行刮削（由 MediaScrapingHandler 处理）
     log.debug("本地和 OpenList 都不存在{}文件，跳过: {}", description, imageFileName);
     context.getStats().incrementSkipped();
-    return ProcessingResult.SKIPPED;
+    return FileProcessingResult.skipped("本地和 OpenList 都不存在" + description + "文件: " + imageFileName);
   }
 
   /** 处理任意命名的图片文件（降级策略） 如果没有找到特定命名的图片文件，下载同目录下的任意图片文件 */
-  private ProcessingResult processArbitraryImages(FileProcessingContext context) {
+  private FileProcessingResult processArbitraryImages(FileProcessingContext context) {
     try {
-      java.util.List<OpenlistApiService.OpenlistFile> directoryFiles = context.getDirectoryFiles();
+      java.util.List<OpenlistApiService.OpenlistFile> directoryFiles =
+          context.getDirectoryFiles();
       if (directoryFiles == null || directoryFiles.isEmpty()) {
-        return ProcessingResult.SKIPPED;
+        return FileProcessingResult.skipped("当前目录文件列表为空");
       }
 
       String saveDirectory = context.getSaveDirectory();
@@ -158,34 +169,38 @@ public class ImageDownloadHandler implements FileProcessorHandler {
 
       if (arbitraryImages.isEmpty()) {
         log.debug("没有找到任意命名的图片文件");
-        return ProcessingResult.SKIPPED;
+        return FileProcessingResult.skipped("没有找到任意命名的图片文件");
       }
 
       log.info("发现 {} 个任意命名的图片文件", arbitraryImages.size());
 
       int successCount = 0;
+      String lastFailureReason = null;
       for (OpenlistApiService.OpenlistFile imageFile : arbitraryImages) {
-        if (downloadArbitraryImage(context, imageFile)) {
+        String failureReason = downloadArbitraryImage(context, imageFile);
+        if (failureReason == null) {
           successCount++;
+        } else {
+          lastFailureReason = failureReason;
         }
       }
 
       if (successCount > 0) {
         log.info("成功下载 {} 个任意命名的图片文件", successCount);
         context.getStats().incrementProcessed();
-        return ProcessingResult.SUCCESS;
+        return FileProcessingResult.success();
       }
 
-      return ProcessingResult.SKIPPED;
+      return FileProcessingResult.skipped(lastFailureReason);
 
     } catch (Exception e) {
       log.error("处理任意命名图片文件失败: {}", context.getBaseFileName(), e);
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("处理任意命名图片文件失败: " + e.getMessage());
     }
   }
 
   /** 下载任意命名的图片文件，保留原文件名 */
-  private boolean downloadArbitraryImage(
+  private String downloadArbitraryImage(
       FileProcessingContext context, OpenlistApiService.OpenlistFile imageFile) {
 
     String saveDirectory = context.getSaveDirectory();
@@ -196,7 +211,7 @@ public class ImageDownloadHandler implements FileProcessorHandler {
       Path localPath = Paths.get(saveDirectory, fileName);
       if (Files.exists(localPath)) {
         log.debug("本地图片文件已存在，跳过: {}", fileName);
-        return true;
+        return null;
       }
 
       // 构建下载URL并进行编码
@@ -217,15 +232,15 @@ public class ImageDownloadHandler implements FileProcessorHandler {
         Files.write(localPath, content);
 
         log.info("从 OpenList 下载任意命名图片文件成功: {} -> {}", fileName, localPath);
-        return true;
+        return null;
       }
 
       log.debug("图片文件内容为空: {}", fileName);
-      return false;
+      return "图片文件内容为空: " + fileName;
 
     } catch (Exception e) {
       log.warn("下载任意命名图片文件失败: {}, 错误: {}", fileName, e.getMessage());
-      return false;
+      return "下载任意命名图片文件失败: " + fileName + "，错误: " + e.getMessage();
     }
   }
 
@@ -251,7 +266,7 @@ public class ImageDownloadHandler implements FileProcessorHandler {
   // ==================== 电视剧共用图片处理 ====================
 
   /** 处理电视剧共用图片（poster.jpg, fanart.jpg） */
-  public ProcessingResult processTvShowSharedImages(FileProcessingContext context) {
+  public FileProcessingResult processTvShowSharedImages(FileProcessingContext context) {
     try {
       String saveDirectory = context.getSaveDirectory();
 
@@ -264,12 +279,21 @@ public class ImageDownloadHandler implements FileProcessorHandler {
       // 处理 fanart.jpg
       processSharedFile(context, saveDirectory, "fanart.jpg");
 
-      return ProcessingResult.SUCCESS;
+      return FileProcessingResult.success();
 
     } catch (Exception e) {
       log.error("处理电视剧共用图片失败: {}", context.getBaseFileName(), e);
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("处理电视剧共用图片失败: " + e.getMessage());
     }
+  }
+
+  private String firstReason(FileProcessingResult... results) {
+    for (FileProcessingResult result : results) {
+      if (result.getReason() != null) {
+        return result.getReason();
+      }
+    }
+    throw new IllegalStateException("文件处理结果原因不能为空");
   }
 
   private void processSharedFile(

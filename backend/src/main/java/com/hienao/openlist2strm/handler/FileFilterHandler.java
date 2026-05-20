@@ -43,7 +43,7 @@ public class FileFilterHandler implements FileProcessorHandler {
   // ==================== 接口实现 ====================
 
   @Override
-  public ProcessingResult process(FileProcessingContext context) {
+  public FileProcessingResult process(FileProcessingContext context) {
     try {
       @SuppressWarnings("unchecked")
       List<OpenlistApiService.OpenlistFile> allFiles =
@@ -51,7 +51,7 @@ public class FileFilterHandler implements FileProcessorHandler {
 
       if (allFiles == null || allFiles.isEmpty()) {
         log.debug("没有发现文件可过滤");
-        return ProcessingResult.SUCCESS;
+        return FileProcessingResult.success();
       }
 
       // 过滤出视频文件
@@ -76,11 +76,11 @@ public class FileFilterHandler implements FileProcessorHandler {
           subtitleFiles.size(),
           imageFiles.size());
 
-      return ProcessingResult.SUCCESS;
+      return FileProcessingResult.success();
 
     } catch (Exception e) {
       log.error("文件过滤失败: {}", e.getMessage(), e);
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("文件过滤失败: " + e.getMessage());
     }
   }
 

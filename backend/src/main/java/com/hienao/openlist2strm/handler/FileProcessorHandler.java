@@ -19,7 +19,7 @@ public interface FileProcessorHandler {
    * @param context 处理上下文，包含当前处理的文件信息和配置
    * @return 处理结果
    */
-  ProcessingResult process(FileProcessingContext context);
+  FileProcessingResult process(FileProcessingContext context);
 
   /**
    * 获取处理器执行顺序

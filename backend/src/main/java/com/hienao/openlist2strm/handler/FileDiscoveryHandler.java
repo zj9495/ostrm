@@ -33,7 +33,7 @@ public class FileDiscoveryHandler implements FileProcessorHandler {
   // ==================== 接口实现 ====================
 
   @Override
-  public ProcessingResult process(FileProcessingContext context) {
+  public FileProcessingResult process(FileProcessingContext context) {
     try {
       log.debug("开始文件发现: {}", context.getRelativePath());
 
@@ -51,11 +51,11 @@ public class FileDiscoveryHandler implements FileProcessorHandler {
       context.getStats().setTotalFiles(allFiles.size());
 
       log.info("文件发现完成，共发现 {} 个文件/目录", allFiles.size());
-      return ProcessingResult.SUCCESS;
+      return FileProcessingResult.success();
 
     } catch (Exception e) {
       log.error("文件发现失败: {}", e.getMessage(), e);
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("文件发现失败: " + e.getMessage());
     }
   }
 

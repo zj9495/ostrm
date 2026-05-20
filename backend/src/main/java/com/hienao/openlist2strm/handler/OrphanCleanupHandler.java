@@ -41,13 +41,13 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
   // ==================== 接口实现 ====================
 
   @Override
-  public ProcessingResult process(FileProcessingContext context) {
+  public FileProcessingResult process(FileProcessingContext context) {
     try {
       // 只在增量模式下执行清理
       if (!Boolean.TRUE.equals(context.getTaskConfig().getIsIncrement())) {
         log.debug("非增量模式，跳过孤立文件清理");
         context.getStats().incrementSkipped();
-        return ProcessingResult.SKIPPED;
+        return FileProcessingResult.skipped("非增量模式，跳过孤立文件清理");
       }
 
       String strmBasePath = context.getTaskConfig().getStrmPath();
@@ -63,7 +63,7 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
       if (allFiles == null || allFiles.isEmpty()) {
         log.debug("没有发现文件，跳过清理");
         context.getStats().incrementSkipped();
-        return ProcessingResult.SKIPPED;
+        return FileProcessingResult.skipped("没有发现文件，跳过孤立文件清理");
       }
 
       log.info("开始检查孤立文件，使用 {} 个 OpenList 文件进行匹配", allFiles.size());
@@ -80,12 +80,12 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
           result.subtitleCount);
 
       context.getStats().incrementProcessed();
-      return ProcessingResult.SUCCESS;
+      return FileProcessingResult.success();
 
     } catch (Exception e) {
       log.error("孤立文件清理失败: {}", e.getMessage(), e);
       context.getStats().incrementFailed();
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("孤立文件清理失败: " + e.getMessage());
     }
   }
 

@@ -420,8 +420,8 @@
               <div v-else class="space-y-2">
                 <div v-for="logLine in taskRunLogs" :key="logLine.id" class="grid grid-cols-1 gap-1 text-white/70 md:grid-cols-[180px_70px_minmax(0,1fr)]">
                   <span class="text-white/40">{{ formatOptionalDate(logLine.loggedAt, '未记录') }}</span>
-                  <span :class="getLogLevelClass(logLine.level)">{{ logLine.level }}</span>
-                  <span class="break-words">{{ logLine.message }}</span>
+                  <span :class="getLogLevelClass(logLine.level)" class="font-semibold">{{ logLine.level }}</span>
+                  <span class="min-w-0 whitespace-pre-wrap break-words leading-relaxed">{{ logLine.message }}</span>
                 </div>
               </div>
             </div>
@@ -621,7 +621,7 @@ const getRunStatusClass = (status) => {
 const getLogLevelClass = (level) => {
   const classes = {
     INFO: 'text-blue-300',
-    WARN: 'text-yellow-300',
+    WARN: 'text-amber-300',
     ERROR: 'text-red-300',
     DEBUG: 'text-white/40'
   }

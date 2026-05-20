@@ -39,7 +39,7 @@ services:
       - ${LOG_PATH_HOST}:/maindata/log
       - ${CONFIG_PATH_HOST}:/maindata/config
       - ${DB_PATH_HOST}:/maindata/db
-      - ${STRM_PATH_HOST}:/workspace/strm
+      - ${STRM_PATH_HOST}:/app/backend/strm
     restart: unless-stopped
 
   proxy:

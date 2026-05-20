@@ -49,14 +49,13 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
   // ==================== 接口实现 ====================
 
   @Override
-  public ProcessingResult process(FileProcessingContext context) {
+  public FileProcessingResult process(FileProcessingContext context) {
     try {
       // 1. 检查配置是否启用
       boolean keepSubtitleEnabled = isKeepSubtitleEnabled(context);
 
       if (!keepSubtitleEnabled) {
-        context.getStats().incrementSkipped();
-        return ProcessingResult.SKIPPED;
+        return FileProcessingResult.success();
       }
 
       // 2. 获取当前目录的所有字幕文件
@@ -86,31 +85,35 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
       if (subtitleFiles.isEmpty()) {
         log.debug("没有需要处理的字幕文件");
         context.getStats().incrementSkipped();
-        return ProcessingResult.SKIPPED;
+        return FileProcessingResult.skipped("当前目录没有需要处理的字幕文件");
       }
 
       // 3. 处理每个字幕文件
       int successCount = 0;
+      String lastFailureReason = null;
       for (OpenlistApiService.OpenlistFile subtitleFile : subtitleFiles) {
-        if (copySubtitleFile(context, subtitleFile)) {
+        String failureReason = copySubtitleFile(context, subtitleFile);
+        if (failureReason == null) {
           downloadedSubtitles.add(subtitleFile.getName().toLowerCase());
           successCount++;
+        } else {
+          lastFailureReason = failureReason;
         }
       }
 
       if (successCount > 0) {
         log.info("成功复制 {} 个字幕文件", successCount);
         context.getStats().incrementProcessed();
-        return ProcessingResult.SUCCESS;
+        return FileProcessingResult.success();
       }
 
       context.getStats().incrementSkipped();
-      return ProcessingResult.SKIPPED;
+      return FileProcessingResult.skipped(lastFailureReason);
 
     } catch (Exception e) {
       log.error("字幕文件处理失败: {}", context.getBaseFileName(), e);
       context.getStats().incrementFailed();
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("字幕文件处理失败: " + e.getMessage());
     }
   }
 
@@ -122,7 +125,7 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
   // ==================== 字幕复制逻辑 ====================
 
   /** 复制单个字幕文件 */
-  private boolean copySubtitleFile(
+  private String copySubtitleFile(
       FileProcessingContext context, OpenlistApiService.OpenlistFile subtitleFile) {
 
     String saveDirectory = context.getSaveDirectory();
@@ -134,7 +137,7 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
       if (Files.exists(localPath)) {
         log.debug("本地字幕文件已存在，跳过: {}", fileName);
         downloadedSubtitles.add(fileName.toLowerCase());
-        return true;
+        return null;
       }
 
       // 2. 构建下载URL并进行编码
@@ -156,15 +159,15 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
         Files.write(localPath, content);
 
         log.info("已复制字幕文件: {} -> {} (大小: {} bytes)", fileName, localPath, content.length);
-        return true;
+        return null;
       }
 
       log.debug("字幕文件内容为空: {}", fileName);
-      return false;
+      return "字幕文件内容为空: " + fileName;
 
     } catch (Exception e) {
       log.warn("复制字幕文件失败: {}, 错误: {}", fileName, e.getMessage());
-      return false;
+      return "复制字幕文件失败: " + fileName + "，错误: " + e.getMessage();
     }
   }
 

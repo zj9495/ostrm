@@ -31,11 +31,11 @@ public class StrmGenerationHandler implements FileProcessorHandler {
   // ==================== 接口实现 ====================
 
   @Override
-  public ProcessingResult process(FileProcessingContext context) {
+  public FileProcessingResult process(FileProcessingContext context) {
     OpenlistApiService.OpenlistFile currentFile = context.getCurrentFile();
     if (currentFile == null) {
       log.debug("没有当前文件，跳过 STRM 生成");
-      return ProcessingResult.SUCCESS;
+      return FileProcessingResult.success();
     }
 
     try {
@@ -60,12 +60,12 @@ public class StrmGenerationHandler implements FileProcessorHandler {
           openlistConfig);
 
       context.getStats().incrementProcessed();
-      return ProcessingResult.SUCCESS;
+      return FileProcessingResult.success();
 
     } catch (Exception e) {
       log.error("生成 STRM 文件失败: {}, 错误: {}", currentFile.getName(), e.getMessage(), e);
       context.getStats().incrementFailed();
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("生成 STRM 文件失败: " + e.getMessage());
     }
   }
 

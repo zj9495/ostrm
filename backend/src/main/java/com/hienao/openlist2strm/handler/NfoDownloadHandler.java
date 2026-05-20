@@ -41,13 +41,13 @@ public class NfoDownloadHandler implements FileProcessorHandler {
   // ==================== 接口实现 ====================
 
   @Override
-  public ProcessingResult process(FileProcessingContext context) {
+  public FileProcessingResult process(FileProcessingContext context) {
     try {
       // 1. 检查配置是否启用
       if (!isNfoScrapingEnabled(context)) {
         log.debug("NFO 刮削未启用，跳过");
         context.getStats().incrementSkipped();
-        return ProcessingResult.SKIPPED;
+        return FileProcessingResult.skipped("NFO 刮削未启用");
       }
 
       // 2. 优先级判断
@@ -57,7 +57,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
         case LOCAL:
           log.debug("本地 NFO 文件已存在，跳过: {}", context.getBaseFileName());
           context.getStats().incrementSkipped();
-          return ProcessingResult.SKIPPED;
+          return FileProcessingResult.skipped("本地 NFO 文件已存在: " + priority.getFileName());
 
         case OPENLIST:
           return downloadFromOpenList(context);
@@ -68,13 +68,13 @@ public class NfoDownloadHandler implements FileProcessorHandler {
         case SKIPPED:
         default:
           context.getStats().incrementSkipped();
-          return ProcessingResult.SKIPPED;
+          return FileProcessingResult.skipped(priority.getMessage());
       }
 
     } catch (Exception e) {
       log.error("NFO 文件处理失败: {}", context.getBaseFileName(), e);
       context.getStats().incrementFailed();
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("NFO 文件处理失败: " + e.getMessage());
     }
   }
 
@@ -86,7 +86,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
   // ==================== 下载逻辑 ====================
 
   /** 从 OpenList 下载 NFO 文件 */
-  private ProcessingResult downloadFromOpenList(FileProcessingContext context) {
+  private FileProcessingResult downloadFromOpenList(FileProcessingContext context) {
     try {
       String nfoFileName = context.getBaseFileName() + ".nfo";
 
@@ -108,7 +108,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
 
           log.info("从 OpenList 下载 NFO 文件成功: {}", nfoFileName);
           context.getStats().incrementProcessed();
-          return ProcessingResult.SUCCESS;
+          return FileProcessingResult.success();
         }
       }
 
@@ -118,12 +118,12 @@ public class NfoDownloadHandler implements FileProcessorHandler {
 
     } catch (Exception e) {
       log.error("从 OpenList 下载 NFO 文件失败: {}", context.getBaseFileName(), e);
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("从 OpenList 下载 NFO 文件失败: " + e.getMessage());
     }
   }
 
   /** Fallback 到刮削 */
-  private ProcessingResult fallbackToScraping(FileProcessingContext context) {
+  private FileProcessingResult fallbackToScraping(FileProcessingContext context) {
     try {
       mediaScrapingService.scrapMedia(
           context.getOpenlistConfig(),
@@ -135,12 +135,12 @@ public class NfoDownloadHandler implements FileProcessorHandler {
 
       log.debug("NFO 文件刮削完成: {}", context.getBaseFileName());
       context.getStats().incrementProcessed();
-      return ProcessingResult.SUCCESS;
+      return FileProcessingResult.success();
 
     } catch (Exception e) {
       log.error("NFO 文件刮削失败: {}", context.getBaseFileName(), e);
       context.getStats().incrementFailed();
-      return ProcessingResult.FAILED;
+      return FileProcessingResult.failed("NFO 文件刮削失败: " + e.getMessage());
     }
   }
 
