@@ -91,7 +91,7 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
 
   @Override
   public java.util.Set<FileType> getHandledTypes() {
-    return java.util.Set.of(FileType.ALL);
+    return java.util.Set.of();
   }
 
   // ==================== 清理逻辑 ====================

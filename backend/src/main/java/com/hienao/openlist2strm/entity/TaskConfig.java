@@ -54,4 +54,13 @@ public class TaskConfig {
 
   /** 是否启用：true-启用，false-禁用 */
   private Boolean isActive;
+
+  /** 最小文件大小，单位 bytes，为空时不启用 */
+  private Long minFileSizeBytes;
+
+  /** 文件名排除正则表达式，为空时不启用 */
+  private String fileNameExcludeRegex;
+
+  /** 目录名称排除正则表达式，为空时不启用 */
+  private String directoryNameExcludeRegex;
 }

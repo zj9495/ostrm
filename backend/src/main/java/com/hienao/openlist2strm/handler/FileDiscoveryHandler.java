@@ -2,15 +2,19 @@ package com.hienao.openlist2strm.handler;
 
 import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.entity.TaskConfig;
+import com.hienao.openlist2strm.exception.BusinessException;
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import com.hienao.openlist2strm.service.OpenlistApiService;
+import com.hienao.openlist2strm.service.TaskRunService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 /**
  * 文件发现处理器
@@ -29,6 +33,7 @@ import org.springframework.stereotype.Component;
 public class FileDiscoveryHandler implements FileProcessorHandler {
 
   private final OpenlistApiService openlistApiService;
+  private final TaskRunService taskRunService;
 
   // ==================== 接口实现 ====================
 
@@ -38,13 +43,17 @@ public class FileDiscoveryHandler implements FileProcessorHandler {
       log.debug("开始文件发现: {}", context.getRelativePath());
 
       List<OpenlistApiService.OpenlistFile> allFiles = new ArrayList<>();
+      Pattern directoryNameExcludePattern = compileDirectoryNameExcludePattern(context);
+      Long taskRunId = context.getAttribute("taskRunId");
 
       // 递归遍历目录
       processDirectory(
           context.getOpenlistConfig(),
           context.getTaskConfig().getPath(),
           context.getTaskConfig(),
-          allFiles);
+          allFiles,
+          directoryNameExcludePattern,
+          taskRunId);
 
       // 将发现的文件列表设置到上下文中
       context.setAttribute("discoveredFiles", allFiles);
@@ -61,7 +70,7 @@ public class FileDiscoveryHandler implements FileProcessorHandler {
 
   @Override
   public Set<FileType> getHandledTypes() {
-    return Set.of(FileType.ALL); // 发现所有类型的文件
+    return Set.of();
   }
 
   // ==================== 递归目录遍历 ====================
@@ -78,13 +87,21 @@ public class FileDiscoveryHandler implements FileProcessorHandler {
       OpenlistConfig openlistConfig,
       String path,
       TaskConfig taskConfig,
-      List<OpenlistApiService.OpenlistFile> allFiles) {
+      List<OpenlistApiService.OpenlistFile> allFiles,
+      Pattern directoryNameExcludePattern,
+      Long taskRunId) {
 
     try {
       List<OpenlistApiService.OpenlistFile> files =
           openlistApiService.getDirectoryContents(openlistConfig, path);
 
       for (OpenlistApiService.OpenlistFile file : files) {
+        if ("folder".equals(file.getType())
+            && isDirectoryExcluded(file, directoryNameExcludePattern)) {
+          appendDirectorySkipLog(taskRunId, file, taskConfig.getDirectoryNameExcludeRegex());
+          continue;
+        }
+
         allFiles.add(file);
 
         if ("folder".equals(file.getType())) {
@@ -93,7 +110,13 @@ public class FileDiscoveryHandler implements FileProcessorHandler {
           if (subPath == null || subPath.isEmpty()) {
             subPath = path + "/" + file.getName();
           }
-          processDirectory(openlistConfig, subPath, taskConfig, allFiles);
+          processDirectory(
+              openlistConfig,
+              subPath,
+              taskConfig,
+              allFiles,
+              directoryNameExcludePattern,
+              taskRunId);
         }
       }
 
@@ -101,7 +124,42 @@ public class FileDiscoveryHandler implements FileProcessorHandler {
 
     } catch (Exception e) {
       log.warn("处理目录失败: {}, 错误: {}", path, e.getMessage());
-      // 不抛出异常，继续处理其他目录
+      throw new BusinessException("处理目录失败: " + path + ", 错误: " + e.getMessage(), e);
     }
+  }
+
+  private Pattern compileDirectoryNameExcludePattern(FileProcessingContext context) {
+    String regex = context.getTaskConfig().getDirectoryNameExcludeRegex();
+    if (!StringUtils.hasText(regex)) {
+      return null;
+    }
+    return Pattern.compile(regex);
+  }
+
+  private boolean isDirectoryExcluded(
+      OpenlistApiService.OpenlistFile file, Pattern directoryNameExcludePattern) {
+    if (directoryNameExcludePattern == null) {
+      return false;
+    }
+    return directoryNameExcludePattern.matcher(file.getName()).find();
+  }
+
+  private void appendDirectorySkipLog(
+      Long taskRunId, OpenlistApiService.OpenlistFile file, String directoryNameExcludeRegex) {
+    if (taskRunId == null) {
+      return;
+    }
+
+    taskRunService.appendLog(
+        taskRunId,
+        "WARN",
+        "目录跳过: "
+            + file.getPath()
+            + "，字段: directoryNameExcludeRegex"
+            + "，目录名称: "
+            + file.getName()
+            + "，规则: "
+            + directoryNameExcludeRegex
+            + "，原因: 目录名称匹配 directoryNameExcludeRegex");
   }
 }

@@ -23,6 +23,9 @@ import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.entity.TaskConfig;
 import com.hienao.openlist2strm.entity.TaskRun;
 import com.hienao.openlist2strm.exception.BusinessException;
+import com.hienao.openlist2strm.handler.FileDiscoveryHandler;
+import com.hienao.openlist2strm.handler.FileFilterHandler;
+import com.hienao.openlist2strm.handler.FileProcessingResult;
 import com.hienao.openlist2strm.handler.FileProcessorChain;
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import java.time.LocalDateTime;
@@ -163,16 +166,34 @@ public class TaskExecutionService {
   private void executeTaskWithHandlerChain(
       TaskConfig taskConfig, OpenlistConfig openlistConfig, boolean isIncrement, Long taskRunId) {
 
-    // 1. 先获取目录文件列表（在清空目录之前验证 OpenList API 可用性）
-    List<OpenlistApiService.OpenlistFile> allFiles;
+    // 1. 创建处理上下文
+    FileProcessingContext context =
+        FileProcessingContext.builder()
+            .openlistConfig(openlistConfig)
+            .taskConfig(taskConfig)
+            .build();
+    context.setAttribute("taskRunId", taskRunId);
+
     try {
       log.info("开始获取 OpenList 文件列表: {}", taskConfig.getPath());
       taskRunService.appendLog(taskRunId, "INFO", "开始获取 OpenList 文件列表: " + taskConfig.getPath());
-      allFiles = openlistApiService.getAllFilesRecursively(openlistConfig, taskConfig.getPath());
+      FileDiscoveryHandler discoveryHandler = fileProcessorChain.getHandler(FileDiscoveryHandler.class);
+      if (discoveryHandler == null) {
+        throw new BusinessException("文件发现处理器不存在");
+      }
+      FileProcessingResult discoveryResult = discoveryHandler.process(context);
+      if (discoveryResult.isFailed()) {
+        throw new BusinessException(discoveryResult.getReason());
+      }
     } catch (Exception e) {
       log.error("获取 OpenList 文件列表失败，终止任务执行，STRM 目录未受影响: {}", e.getMessage(), e);
       taskRunService.appendLog(taskRunId, "ERROR", "获取 OpenList 文件列表失败: " + e.getMessage());
       throw new BusinessException("获取 OpenList 文件列表失败，任务终止: " + e.getMessage(), e);
+    }
+
+    List<OpenlistApiService.OpenlistFile> allFiles = context.getAttribute("discoveredFiles");
+    if (allFiles == null) {
+      throw new BusinessException("文件发现结果为空");
     }
 
     // 2. 验证文件列表有效性（空列表也继续执行，可能该路径下确实没有文件）
@@ -187,25 +208,23 @@ public class TaskExecutionService {
       taskRunService.appendLog(taskRunId, "INFO", "STRM目录清理完成: " + taskConfig.getStrmPath());
     }
 
-    // 4. 创建处理上下文
-    FileProcessingContext context =
-        FileProcessingContext.builder()
-            .openlistConfig(openlistConfig)
-            .taskConfig(taskConfig)
-            .build();
-
     // 保存原始文件列表，用于 OrphanCleanupHandler 进行孤立文件检查
     context.setAttribute("originalFiles", allFiles);
-    context.setAttribute("discoveredFiles", allFiles);
-    context.setAttribute("taskRunId", taskRunId);
     context.getStats().setTotalFiles(allFiles.size());
 
     // 5. 过滤出视频文件
-    List<OpenlistApiService.OpenlistFile> videoFiles =
-        allFiles.stream()
-            .filter(f -> "file".equals(f.getType()))
-            .filter(f -> strmFileService.isVideoFile(f.getName()))
-            .toList();
+    FileFilterHandler filterHandler = fileProcessorChain.getHandler(FileFilterHandler.class);
+    if (filterHandler == null) {
+      throw new BusinessException("文件过滤处理器不存在");
+    }
+    FileProcessingResult filterResult = filterHandler.process(context);
+    if (filterResult.isFailed()) {
+      throw new BusinessException(filterResult.getReason());
+    }
+    List<OpenlistApiService.OpenlistFile> videoFiles = context.getAttribute("videoFiles");
+    if (videoFiles == null) {
+      throw new BusinessException("文件过滤结果为空");
+    }
 
     // 6. 获取配置
     Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();

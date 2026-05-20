@@ -9,8 +9,9 @@ TBD - created by archiving change optimize-file-processing-pipeline. Update Purp
 
 1. 从任务配置的 `path` 起始目录开始
 2. 逐层获取每个目录的内容列表
-3. 对于子目录，递归调用获取其内容
-4. 对于文件，记录文件元数据（名称、路径、URL、签名等）
+3. 对于子目录，先应用任务配置的目录名称排除规则
+4. 未被排除的子目录，递归调用获取其内容
+5. 对于文件，记录文件元数据（名称、路径、URL、签名等）
 
 #### Scenario: 从根目录开始遍历
 - **WHEN** 任务配置的 path 为 `/movies`
@@ -19,6 +20,13 @@ TBD - created by archiving change optimize-file-processing-pipeline. Update Purp
 #### Scenario: 遍历子目录
 - **WHEN** 当前目录包含子目录 `/movies/Action`
 - **THEN** 系统 SHALL 递归遍历 `/movies/Action` 目录
+
+#### Scenario: 跳过被目录名称排除规则匹配的子目录
+- **WHEN** 任务配置了 `directoryNameExcludeRegex`
+- **AND** 当前目录包含名称匹配该正则的子目录
+- **THEN** 系统 SHALL 跳过该子目录递归
+- **AND** 系统 SHALL 向本次任务日志写入目录路径和跳过原因
+- **AND** 系统 SHALL NOT 为该目录内未枚举的文件补写文件级跳过日志
 
 #### Scenario: 收集文件元数据
 - **WHEN** 遍历过程中发现文件 `movie.mp4`
@@ -104,4 +112,3 @@ TBD - created by archiving change optimize-file-processing-pipeline. Update Purp
 #### Scenario: 降级处理
 - **WHEN** 分批处理失败
 - **THEN** 系统 SHALL 降级到原始的全量加载方法
-

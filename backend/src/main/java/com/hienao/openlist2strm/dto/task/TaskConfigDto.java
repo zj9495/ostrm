@@ -56,4 +56,13 @@ public class TaskConfigDto {
 
   /** 是否启用：true-启用，false-禁用 */
   private Boolean isActive;
+
+  /** 最小文件大小，单位 bytes，为空时不启用 */
+  private Long minFileSizeBytes;
+
+  /** 文件名排除正则表达式，为空时不启用 */
+  @Size(max = 500, message = "文件名排除正则表达式长度不能超过500个字符") private String fileNameExcludeRegex;
+
+  /** 目录名称排除正则表达式，为空时不启用 */
+  @Size(max = 500, message = "目录名称排除正则表达式长度不能超过500个字符") private String directoryNameExcludeRegex;
 }

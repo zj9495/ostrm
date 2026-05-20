@@ -17,11 +17,14 @@
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
         <result column="is_active" property="isActive" jdbcType="BOOLEAN"/>
+        <result column="min_file_size_bytes" property="minFileSizeBytes" jdbcType="BIGINT"/>
+        <result column="file_name_exclude_regex" property="fileNameExcludeRegex" jdbcType="VARCHAR"/>
+        <result column="directory_name_exclude_regex" property="directoryNameExcludeRegex" jdbcType="VARCHAR"/>
     </resultMap>
 
     <!-- 基础字段 -->
     <sql id="Base_Column_List">
-        id, task_name, path, openlist_config_id, need_scrap, rename_regex, cron, is_increment, strm_path, last_exec_time, created_at, updated_at, is_active
+        id, task_name, path, openlist_config_id, need_scrap, rename_regex, cron, is_increment, strm_path, last_exec_time, created_at, updated_at, is_active, min_file_size_bytes, file_name_exclude_regex, directory_name_exclude_regex
     </sql>
 
     <!-- 根据ID查询 -->
@@ -110,6 +113,15 @@
             <if test="isActive != null">
                 is_active,
             </if>
+            <if test="minFileSizeBytes != null">
+                min_file_size_bytes,
+            </if>
+            <if test="fileNameExcludeRegex != null">
+                file_name_exclude_regex,
+            </if>
+            <if test="directoryNameExcludeRegex != null">
+                directory_name_exclude_regex,
+            </if>
         </trim>
         <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
             <if test="taskName != null and taskName != ''">
@@ -141,6 +153,15 @@
             </if>
             <if test="isActive != null">
                 #{isActive},
+            </if>
+            <if test="minFileSizeBytes != null">
+                #{minFileSizeBytes},
+            </if>
+            <if test="fileNameExcludeRegex != null">
+                #{fileNameExcludeRegex},
+            </if>
+            <if test="directoryNameExcludeRegex != null">
+                #{directoryNameExcludeRegex},
             </if>
         </trim>
     </insert>
@@ -179,6 +200,9 @@
             <if test="isActive != null">
                 is_active = #{isActive},
             </if>
+            min_file_size_bytes = #{minFileSizeBytes},
+            file_name_exclude_regex = #{fileNameExcludeRegex},
+            directory_name_exclude_regex = #{directoryNameExcludeRegex},
             updated_at = CURRENT_TIMESTAMP,
         </set>
         WHERE id = #{id}

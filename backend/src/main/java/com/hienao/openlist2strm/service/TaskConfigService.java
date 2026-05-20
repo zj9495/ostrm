@@ -7,6 +7,8 @@ import com.hienao.openlist2strm.mapper.TaskConfigMapper;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -161,6 +163,7 @@ public class TaskConfigService {
     if (taskConfig.getId() == null) {
       throw new BusinessException(TASK_CONFIG_ID_NULL_ERROR);
     }
+    validateConfig(taskConfig);
 
     // 检查配置是否存在
     TaskConfig existingConfig = taskConfigMapper.selectById(taskConfig.getId());
@@ -367,6 +370,25 @@ public class TaskConfigService {
       // 这里可以添加cron表达式格式验证逻辑
       // 例如使用CronExpression.isValidExpression(taskConfig.getCron())
     }
+
+    if (taskConfig.getMinFileSizeBytes() != null && taskConfig.getMinFileSizeBytes() < 0) {
+      throw new BusinessException("最小文件大小不能小于0");
+    }
+
+    validateRegex(taskConfig.getFileNameExcludeRegex(), "文件名排除正则表达式");
+    validateRegex(taskConfig.getDirectoryNameExcludeRegex(), "目录名称排除正则表达式");
+  }
+
+  private void validateRegex(String regex, String fieldName) {
+    if (!StringUtils.hasText(regex)) {
+      return;
+    }
+
+    try {
+      Pattern.compile(regex);
+    } catch (PatternSyntaxException e) {
+      throw new BusinessException(fieldName + "格式不正确: " + e.getMessage(), e);
+    }
   }
 
   /**
@@ -395,6 +417,12 @@ public class TaskConfigService {
     }
     if (taskConfig.getIsActive() == null) {
       taskConfig.setIsActive(true);
+    }
+    if (taskConfig.getFileNameExcludeRegex() == null) {
+      taskConfig.setFileNameExcludeRegex("");
+    }
+    if (taskConfig.getDirectoryNameExcludeRegex() == null) {
+      taskConfig.setDirectoryNameExcludeRegex("");
     }
   }
 }

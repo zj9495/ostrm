@@ -148,6 +148,21 @@
               <dd class="mt-1 text-sm text-white/80 font-mono bg-white/5 px-3 py-2 rounded break-all">{{ task.renameRegex }}</dd>
             </div>
 
+            <div class="mt-3" v-if="hasTaskFilters(task)">
+              <dt class="text-sm text-white/40">过滤规则</dt>
+              <div class="mt-1 space-y-2">
+                <dd v-if="task.minFileSizeBytes !== null && task.minFileSizeBytes !== undefined" class="text-sm text-white/80 font-mono bg-white/5 px-3 py-2 rounded break-all">
+                  最小文件大小: {{ formatFileSize(task.minFileSizeBytes) }}
+                </dd>
+                <dd v-if="task.fileNameExcludeRegex" class="text-sm text-white/80 font-mono bg-white/5 px-3 py-2 rounded break-all">
+                  文件名排除: {{ task.fileNameExcludeRegex }}
+                </dd>
+                <dd v-if="task.directoryNameExcludeRegex" class="text-sm text-white/80 font-mono bg-white/5 px-3 py-2 rounded break-all">
+                  目录名排除: {{ task.directoryNameExcludeRegex }}
+                </dd>
+              </div>
+            </div>
+
             <div class="mt-3 text-xs text-white/30">
               创建时间: {{ formatDate(task.createdAt) }}
               <span v-if="latestRunIds[task.id]" class="ml-3">最近提交运行ID: {{ latestRunIds[task.id] }}</span>
@@ -241,6 +256,22 @@
                       <li>添加前缀：<code class="bg-white/10 px-1 rounded">^|Movie_</code></li>
                     </ul>
                   </div>
+                </div>
+              </div>
+
+              <div class="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                <h4 class="text-sm font-medium text-white/80">过滤规则</h4>
+                <div>
+                  <label class="block text-sm text-white/70 mb-2">最小文件大小 (MB)</label>
+                  <input v-model="minFileSizeMb" type="number" min="0" step="1" placeholder="留空表示不过滤文件大小" class="input-field">
+                </div>
+                <div>
+                  <label class="block text-sm text-white/70 mb-2">文件名排除正则</label>
+                  <input v-model="taskForm.fileNameExcludeRegex" type="text" placeholder="匹配该正则的文件会被跳过" class="input-field">
+                </div>
+                <div>
+                  <label class="block text-sm text-white/70 mb-2">目录名称排除正则</label>
+                  <input v-model="taskForm.directoryNameExcludeRegex" type="text" placeholder="匹配该正则的目录会被跳过" class="input-field">
                 </div>
               </div>
 
@@ -461,6 +492,7 @@ const taskRuns = ref([])
 const taskRunLogs = ref([])
 const loadingTaskRuns = ref(false)
 const loadingRunLogs = ref(false)
+const BYTES_PER_MB = 1024 * 1024
 const taskForm = ref({
   taskName: '',
   path: '',
@@ -469,9 +501,13 @@ const taskForm = ref({
   needScrap: false,
   renameRegex: '',
   isIncrement: true,
-  isActive: true
+  isActive: true,
+  minFileSizeBytes: null,
+  fileNameExcludeRegex: '',
+  directoryNameExcludeRegex: ''
 })
 const strmSubPath = ref('')
+const minFileSizeMb = ref('')
 const showRenameRegexHelp = ref(false)
 
 const getConfigInfo = async () => {
@@ -506,9 +542,11 @@ const fetchTasks = async () => {
 const resetTaskForm = () => {
   taskForm.value = {
     taskName: '', path: '', strmPath: '/app/backend/strm', cron: '',
-    needScrap: false, renameRegex: '', isIncrement: true, isActive: true
+    needScrap: false, renameRegex: '', isIncrement: true, isActive: true,
+    minFileSizeBytes: null, fileNameExcludeRegex: '', directoryNameExcludeRegex: ''
   }
   strmSubPath.value = ''
+  minFileSizeMb.value = ''
   showRenameRegexHelp.value = false
 }
 
@@ -516,11 +554,15 @@ const editTask = (task) => {
   editingTaskId.value = task.id
   taskForm.value = {
     taskName: task.taskName, path: task.path, strmPath: task.strmPath,
-    cron: task.cron || '', needScrap: task.needScrap || false,
-    renameRegex: task.renameRegex || '', isIncrement: task.isIncrement, isActive: task.isActive
+    cron: toTextValue(task.cron), needScrap: task.needScrap === true,
+    renameRegex: toTextValue(task.renameRegex), isIncrement: task.isIncrement, isActive: task.isActive,
+    minFileSizeBytes: task.minFileSizeBytes,
+    fileNameExcludeRegex: toTextValue(task.fileNameExcludeRegex),
+    directoryNameExcludeRegex: toTextValue(task.directoryNameExcludeRegex)
   }
   const prefix = '/app/backend/strm/'
   strmSubPath.value = task.strmPath?.startsWith(prefix) ? task.strmPath.substring(prefix.length) : ''
+  minFileSizeMb.value = task.minFileSizeBytes === null || task.minFileSizeBytes === undefined ? '' : task.minFileSizeBytes / BYTES_PER_MB
   showEditTaskModal.value = true
 }
 
@@ -541,8 +583,15 @@ const submitTask = async () => {
   try {
     submitting.value = true
     if (taskForm.value.path) await validateTaskPath(taskForm.value.path)
-    const fullStrmPath = '/app/backend/strm/' + (strmSubPath.value || '')
-    const taskData = { ...taskForm.value, strmPath: fullStrmPath, openlistConfigId: parseInt(configId) }
+    const strmSubPathValue = strmSubPath.value === '' ? '' : strmSubPath.value
+    const fullStrmPath = '/app/backend/strm/' + strmSubPathValue
+    const minFileSizeBytes = parseMinFileSizeBytes()
+    const taskData = {
+      ...taskForm.value,
+      strmPath: fullStrmPath,
+      minFileSizeBytes,
+      openlistConfigId: parseInt(configId)
+    }
     let response
     if (showCreateTaskModal.value) {
       response = await authenticatedApiCall('/task-config', { method: 'POST', body: taskData })
@@ -582,6 +631,33 @@ const closeModal = () => {
 }
 
 const formatDate = (timestamp) => !timestamp || timestamp === 0 ? '未执行' : new Date(timestamp).toLocaleString('zh-CN')
+const formatFileSize = (bytes) => `${bytes} bytes (${bytes / BYTES_PER_MB} MB)`
+const hasTaskFilters = (task) => {
+  if (task.minFileSizeBytes !== null && task.minFileSizeBytes !== undefined) {
+    return true
+  }
+  if (Boolean(task.fileNameExcludeRegex)) {
+    return true
+  }
+  if (Boolean(task.directoryNameExcludeRegex)) {
+    return true
+  }
+  return false
+}
+const toTextValue = (value) => value === null || value === undefined ? '' : value
+const parseMinFileSizeBytes = () => {
+  if (minFileSizeMb.value === '') {
+    return null
+  }
+  const minFileSizeMbNumber = Number(minFileSizeMb.value)
+  if (!Number.isInteger(minFileSizeMbNumber)) {
+    throw new Error('最小文件大小请输入整数 MB')
+  }
+  if (minFileSizeMbNumber < 0) {
+    throw new Error('最小文件大小不能小于 0 MB')
+  }
+  return minFileSizeMbNumber * BYTES_PER_MB
+}
 const formatOptionalDate = (value, emptyText) => {
   if (value == null) return emptyText
   if (value === 0) return emptyText
