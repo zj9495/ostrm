@@ -204,8 +204,8 @@
     <Teleport to="body">
       <div v-if="showCreateTaskModal || showEditTaskModal" class="modal-overlay animate-fade-in">
         <div class="flex items-center justify-center min-h-screen p-4">
-          <div class="modal-content animate-scale-in w-full max-w-lg" @click.stop>
-            <div class="flex items-center justify-between mb-6">
+          <div class="modal-content animate-scale-in flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden" @click.stop>
+            <div class="flex shrink-0 items-center justify-between mb-6">
               <h3 class="text-xl font-semibold text-white">
                 {{ showCreateTaskModal ? '创建任务' : '编辑任务' }}
               </h3>
@@ -216,120 +216,124 @@
               </button>
             </div>
 
-            <form @submit.prevent="submitTask" class="space-y-5">
-              <div>
-                <label class="block text-sm text-white/70 mb-2">任务名称 *</label>
-                <input v-model="taskForm.taskName" type="text" required class="input-field" placeholder="请输入任务名称">
-              </div>
-
-              <div>
-                <label class="block text-sm text-white/70 mb-2">任务路径 *</label>
-                <input v-model="taskForm.path" type="text" required class="input-field" placeholder="请输入OpenList中的媒体路径">
-              </div>
-
-              <div>
-                <label class="block text-sm text-white/70 mb-2">STRM路径</label>
-                <div class="flex">
-                  <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-white/10 bg-white/5 text-white/50 text-sm">
-                    /app/backend/strm/
-                  </span>
-                  <input v-model="strmSubPath" type="text" placeholder="子路径（可选）" class="input-field rounded-l-none">
-                </div>
-                <p class="mt-1 text-xs text-white/30">前缀 /app/backend/strm/ 固定不可修改</p>
-              </div>
-
-              <div>
-                <label class="block text-sm text-white/70 mb-2">定时任务表达式</label>
-                <input v-model="taskForm.cron" type="text" placeholder="例如: 0 15 10 ? * *" class="input-field">
-                <p class="mt-1 text-xs text-white/30">Cron表达式格式，留空表示不启用定时任务</p>
-              </div>
-
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <label class="block text-sm text-white/70">重命名正则表达式</label>
-                  <button type="button" @click="showRenameRegexHelp = !showRenameRegexHelp" class="text-white/40 hover:text-blue-400 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                  </button>
-                </div>
-                <input v-model="taskForm.renameRegex" type="text" placeholder="留空表示不需要重命名" class="input-field">
-                <p class="mt-1 text-xs text-white/30">用于文件重命名的正则表达式</p>
-
-                <div v-if="showRenameRegexHelp" class="mt-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                  <h4 class="text-sm font-medium text-blue-400 mb-2">使用说明</h4>
-                  <div class="text-xs text-white/70 space-y-2">
-                    <p><strong>格式：</strong>原始模式|替换内容</p>
-                    <p><strong>示例：</strong></p>
-                    <ul class="list-disc list-inside ml-2 space-y-1">
-                      <li>移除方括号：<code class="bg-white/10 px-1 rounded">[\[\]()]|</code></li>
-                      <li>空格转下划线：<code class="bg-white/10 px-1 rounded">\s+|_</code></li>
-                      <li>添加前缀：<code class="bg-white/10 px-1 rounded">^|Movie_</code></li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div class="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
-                <h4 class="text-sm font-medium text-white/80">过滤规则</h4>
-                <div>
-                  <label class="block text-sm text-white/70 mb-2">最小文件大小 (MB)</label>
-                  <input v-model="minFileSizeMb" type="number" min="0" step="1" placeholder="留空表示不过滤文件大小" class="input-field">
-                </div>
-                <div>
-                  <label class="block text-sm text-white/70 mb-2">文件名排除正则</label>
-                  <input v-model="taskForm.fileNameExcludeRegex" type="text" placeholder="匹配该正则的文件会被跳过" class="input-field">
-                </div>
-                <div>
-                  <label class="block text-sm text-white/70 mb-2">目录名称排除正则</label>
-                  <input v-model="taskForm.directoryNameExcludeRegex" type="text" placeholder="匹配该正则的目录会被跳过" class="input-field">
-                </div>
-              </div>
-
-              <div class="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
-                <h4 class="text-sm font-medium text-white/80">STRM URL 选项</h4>
-                <div class="grid grid-cols-2 gap-4">
+            <form @submit.prevent="submitTask" class="min-h-0 flex flex-1 flex-col">
+              <div class="min-h-0 flex-1 overflow-y-auto pr-2">
+                <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
                   <div>
-                    <label class="block text-sm text-white/70 mb-2">内容地址替换来源</label>
-                    <input v-model="taskForm.strmUrlReplaceFrom" type="text" placeholder="例如: http://host:port/d" class="input-field">
+                    <label class="block text-sm text-white/70 mb-2">任务名称 *</label>
+                    <input v-model="taskForm.taskName" type="text" required class="input-field" placeholder="请输入任务名称">
                   </div>
+
                   <div>
-                    <label class="block text-sm text-white/70 mb-2">内容地址替换目标</label>
-                    <input v-model="taskForm.strmUrlReplaceTo" type="text" placeholder="例如: /mnt/...url=" class="input-field">
+                    <label class="block text-sm text-white/70 mb-2">任务路径 *</label>
+                    <input v-model="taskForm.path" type="text" required class="input-field" placeholder="请输入OpenList中的媒体路径">
+                  </div>
+
+                  <div class="lg:col-span-2">
+                    <label class="block text-sm text-white/70 mb-2">STRM路径</label>
+                    <div class="flex">
+                      <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-white/10 bg-white/5 text-white/50 text-sm">
+                        /app/backend/strm/
+                      </span>
+                      <input v-model="strmSubPath" type="text" placeholder="子路径（可选）" class="input-field rounded-l-none">
+                    </div>
+                    <p class="mt-1 text-xs text-white/30">前缀 /app/backend/strm/ 固定不可修改</p>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm text-white/70 mb-2">定时任务表达式</label>
+                    <input v-model="taskForm.cron" type="text" placeholder="例如: 0 15 10 ? * *" class="input-field">
+                    <p class="mt-1 text-xs text-white/30">Cron表达式格式，留空表示不启用定时任务</p>
+                  </div>
+
+                  <div>
+                    <div class="flex items-center justify-between mb-2">
+                      <label class="block text-sm text-white/70">重命名正则表达式</label>
+                      <button type="button" @click="showRenameRegexHelp = !showRenameRegexHelp" class="text-white/40 hover:text-blue-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                      </button>
+                    </div>
+                    <input v-model="taskForm.renameRegex" type="text" placeholder="留空表示不需要重命名" class="input-field">
+                    <p class="mt-1 text-xs text-white/30">用于文件重命名的正则表达式</p>
+
+                    <div v-if="showRenameRegexHelp" class="mt-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                      <h4 class="text-sm font-medium text-blue-400 mb-2">使用说明</h4>
+                      <div class="text-xs text-white/70 space-y-2">
+                        <p><strong>格式：</strong>原始模式|替换内容</p>
+                        <p><strong>示例：</strong></p>
+                        <ul class="list-disc list-inside ml-2 space-y-1">
+                          <li>移除方括号：<code class="bg-white/10 px-1 rounded">[\[\]()]|</code></li>
+                          <li>空格转下划线：<code class="bg-white/10 px-1 rounded">\s+|_</code></li>
+                          <li>添加前缀：<code class="bg-white/10 px-1 rounded">^|Movie_</code></li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <h4 class="text-sm font-medium text-white/80">过滤规则</h4>
+                    <div>
+                      <label class="block text-sm text-white/70 mb-2">最小文件大小 (MB)</label>
+                      <input v-model="minFileSizeMb" type="number" min="0" step="1" placeholder="留空表示不过滤文件大小" class="input-field">
+                    </div>
+                    <div>
+                      <label class="block text-sm text-white/70 mb-2">文件名排除正则</label>
+                      <input v-model="taskForm.fileNameExcludeRegex" type="text" placeholder="匹配该正则的文件会被跳过" class="input-field">
+                    </div>
+                    <div>
+                      <label class="block text-sm text-white/70 mb-2">目录名称排除正则</label>
+                      <input v-model="taskForm.directoryNameExcludeRegex" type="text" placeholder="匹配该正则的目录会被跳过" class="input-field">
+                    </div>
+                  </div>
+
+                  <div class="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <h4 class="text-sm font-medium text-white/80">STRM URL 选项</h4>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label class="block text-sm text-white/70 mb-2">内容地址替换来源</label>
+                        <input v-model="taskForm.strmUrlReplaceFrom" type="text" placeholder="例如: http://host:port/d" class="input-field">
+                      </div>
+                      <div>
+                        <label class="block text-sm text-white/70 mb-2">内容地址替换目标</label>
+                        <input v-model="taskForm.strmUrlReplaceTo" type="text" placeholder="例如: /mnt/...url=" class="input-field">
+                      </div>
+                    </div>
+                    <p class="text-xs text-white/30">在 Base URL 替换后的 STRM 内容地址中精确替换指定字符串，留空表示不替换</p>
+
+                    <label class="flex items-start cursor-pointer">
+                      <input v-model="taskForm.generateSign" type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
+                      <span class="ml-2 text-sm text-white/70">
+                        生成 sign 参数
+                        <span class="block text-xs text-white/40 mt-0.5">在 STRM URL 中追加 sign 查询参数</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div class="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4 lg:col-span-2">
+                    <label class="flex items-start cursor-pointer">
+                      <input v-model="taskForm.needScrap" type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
+                      <span class="ml-2 text-sm text-white/70">
+                        需要刮削
+                        <span class="block text-xs text-white/40 mt-0.5">启用TMDB刮削功能，生成NFO和封面</span>
+                      </span>
+                    </label>
+
+                    <label class="flex items-center cursor-pointer">
+                      <input v-model="taskForm.isIncrement" type="checkbox" class="h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
+                      <span class="ml-2 text-sm text-white/70">增量更新</span>
+                    </label>
+
+                    <label class="flex items-center cursor-pointer">
+                      <input v-model="taskForm.isActive" type="checkbox" class="h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
+                      <span class="ml-2 text-sm text-white/70">启用任务</span>
+                    </label>
                   </div>
                 </div>
-                <p class="text-xs text-white/30">在 Base URL 替换后的 STRM 内容地址中精确替换指定字符串，留空表示不替换</p>
-
-                <label class="flex items-start cursor-pointer">
-                  <input v-model="taskForm.generateSign" type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
-                  <span class="ml-2 text-sm text-white/70">
-                    生成 sign 参数
-                    <span class="block text-xs text-white/40 mt-0.5">在 STRM URL 中追加 sign 查询参数</span>
-                  </span>
-                </label>
               </div>
 
-              <div class="space-y-3">
-                <label class="flex items-start cursor-pointer">
-                  <input v-model="taskForm.needScrap" type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
-                  <span class="ml-2 text-sm text-white/70">
-                    需要刮削
-                    <span class="block text-xs text-white/40 mt-0.5">启用TMDB刮削功能，生成NFO和封面</span>
-                  </span>
-                </label>
-
-                <label class="flex items-center cursor-pointer">
-                  <input v-model="taskForm.isIncrement" type="checkbox" class="h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
-                  <span class="ml-2 text-sm text-white/70">增量更新</span>
-                </label>
-
-                <label class="flex items-center cursor-pointer">
-                  <input v-model="taskForm.isActive" type="checkbox" class="h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
-                  <span class="ml-2 text-sm text-white/70">启用任务</span>
-                </label>
-              </div>
-
-              <div class="flex justify-end gap-3 pt-4">
+              <div class="flex shrink-0 justify-end gap-3 border-t border-white/10 pt-4 mt-4">
                 <button type="button" @click="closeModal" class="btn-secondary">取消</button>
                 <button type="submit" :disabled="submitting" class="btn-primary">
                   <svg v-if="submitting" class="loading-spinner -ml-1 mr-2 w-4 h-4" fill="none" viewBox="0 0 24 24">
