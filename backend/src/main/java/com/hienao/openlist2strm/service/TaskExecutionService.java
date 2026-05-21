@@ -388,31 +388,6 @@ public class TaskExecutionService {
   }
 
   /**
-   * 构建包含sign参数的文件URL，并处理baseUrl替换
-   *
-   * @param originalUrl 原始文件URL
-   * @param sign 签名参数
-   * @return 包含sign参数的完整URL
-   */
-  private String buildFileUrlWithSign(String originalUrl, String sign) {
-    if (originalUrl == null) {
-      return null;
-    }
-
-    // 先处理URL，再添加sign参数
-    String processedUrl = originalUrl;
-
-    // 添加sign参数
-    if (sign != null && !sign.trim().isEmpty()) {
-      // 检查URL是否已经包含查询参数
-      String separator = processedUrl.contains("?") ? "&" : "?";
-      processedUrl = processedUrl + separator + "sign=" + sign;
-    }
-
-    return processedUrl;
-  }
-
-  /**
    * 处理URL的baseUrl替换 这个方法会在StrmFileService中调用，用于在生成STRM文件时替换baseUrl
    *
    * @param originalUrl 原始URL
@@ -617,18 +592,19 @@ public class TaskExecutionService {
       String relativePath =
           strmFileService.calculateRelativePath(taskConfig.getPath(), file.getPath());
 
-      // 构建包含sign参数的文件URL
-      String fileUrlWithSign = buildFileUrlWithSign(file.getUrl(), file.getSign());
-
       // 生成STRM文件（增量模式下强制重新生成）
       strmFileService.generateStrmFile(
           taskConfig.getStrmPath(),
           relativePath,
           file.getName(),
-          fileUrlWithSign,
+          file.getUrl(),
           isIncrement, // 增量模式下强制重新生成
           taskConfig.getRenameRegex(),
-          openlistConfig);
+          openlistConfig,
+          file.getSign(),
+          taskConfig.getGenerateSign(),
+          taskConfig.getStrmUrlReplaceFrom(),
+          taskConfig.getStrmUrlReplaceTo());
 
       // 如果启用了刮削功能，执行媒体刮削
       if (needScrap) {

@@ -63,4 +63,13 @@ public class TaskConfig {
 
   /** 目录名称排除正则表达式，为空时不启用 */
   private String directoryNameExcludeRegex;
+
+  /** STRM 内容地址替换来源字符串，为空时不启用 */
+  private String strmUrlReplaceFrom;
+
+  /** STRM 内容地址替换目标字符串 */
+  private String strmUrlReplaceTo;
+
+  /** 是否生成 sign 查询参数 */
+  private Boolean generateSign;
 }

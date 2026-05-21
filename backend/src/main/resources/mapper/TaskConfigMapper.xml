@@ -20,11 +20,14 @@
         <result column="min_file_size_bytes" property="minFileSizeBytes" jdbcType="BIGINT"/>
         <result column="file_name_exclude_regex" property="fileNameExcludeRegex" jdbcType="VARCHAR"/>
         <result column="directory_name_exclude_regex" property="directoryNameExcludeRegex" jdbcType="VARCHAR"/>
+        <result column="strm_url_replace_from" property="strmUrlReplaceFrom" jdbcType="VARCHAR"/>
+        <result column="strm_url_replace_to" property="strmUrlReplaceTo" jdbcType="VARCHAR"/>
+        <result column="generate_sign" property="generateSign" jdbcType="BOOLEAN"/>
     </resultMap>
 
     <!-- 基础字段 -->
     <sql id="Base_Column_List">
-        id, task_name, path, openlist_config_id, need_scrap, rename_regex, cron, is_increment, strm_path, last_exec_time, created_at, updated_at, is_active, min_file_size_bytes, file_name_exclude_regex, directory_name_exclude_regex
+        id, task_name, path, openlist_config_id, need_scrap, rename_regex, cron, is_increment, strm_path, last_exec_time, created_at, updated_at, is_active, min_file_size_bytes, file_name_exclude_regex, directory_name_exclude_regex, strm_url_replace_from, strm_url_replace_to, generate_sign
     </sql>
 
     <!-- 根据ID查询 -->
@@ -122,6 +125,15 @@
             <if test="directoryNameExcludeRegex != null">
                 directory_name_exclude_regex,
             </if>
+            <if test="strmUrlReplaceFrom != null">
+                strm_url_replace_from,
+            </if>
+            <if test="strmUrlReplaceTo != null">
+                strm_url_replace_to,
+            </if>
+            <if test="generateSign != null">
+                generate_sign,
+            </if>
         </trim>
         <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
             <if test="taskName != null and taskName != ''">
@@ -163,6 +175,15 @@
             <if test="directoryNameExcludeRegex != null">
                 #{directoryNameExcludeRegex},
             </if>
+            <if test="strmUrlReplaceFrom != null">
+                #{strmUrlReplaceFrom},
+            </if>
+            <if test="strmUrlReplaceTo != null">
+                #{strmUrlReplaceTo},
+            </if>
+            <if test="generateSign != null">
+                #{generateSign},
+            </if>
         </trim>
     </insert>
 
@@ -203,6 +224,9 @@
             min_file_size_bytes = #{minFileSizeBytes},
             file_name_exclude_regex = #{fileNameExcludeRegex},
             directory_name_exclude_regex = #{directoryNameExcludeRegex},
+            strm_url_replace_from = #{strmUrlReplaceFrom},
+            strm_url_replace_to = #{strmUrlReplaceTo},
+            generate_sign = #{generateSign},
             updated_at = CURRENT_TIMESTAMP,
         </set>
         WHERE id = #{id}

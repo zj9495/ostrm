@@ -141,6 +141,10 @@
                 <input type="checkbox" :checked="task.isIncrement" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
                 增量更新
               </label>
+              <label class="flex items-center text-sm text-white/60">
+                <input type="checkbox" :checked="task.generateSign !== false" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
+                生成 sign 参数
+              </label>
             </div>
 
             <div class="mt-3" v-if="task.renameRegex">
@@ -161,6 +165,13 @@
                   目录名排除: {{ task.directoryNameExcludeRegex }}
                 </dd>
               </div>
+            </div>
+
+            <div class="mt-3" v-if="task.strmUrlReplaceFrom">
+              <dt class="text-sm text-white/40">STRM 内容地址替换</dt>
+              <dd class="mt-1 text-sm text-white/80 font-mono bg-white/5 px-3 py-2 rounded break-all">
+                {{ task.strmUrlReplaceFrom }} → {{ task.strmUrlReplaceTo }}
+              </dd>
             </div>
 
             <div class="mt-3 text-xs text-white/30">
@@ -273,6 +284,29 @@
                   <label class="block text-sm text-white/70 mb-2">目录名称排除正则</label>
                   <input v-model="taskForm.directoryNameExcludeRegex" type="text" placeholder="匹配该正则的目录会被跳过" class="input-field">
                 </div>
+              </div>
+
+              <div class="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                <h4 class="text-sm font-medium text-white/80">STRM URL 选项</h4>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm text-white/70 mb-2">内容地址替换来源</label>
+                    <input v-model="taskForm.strmUrlReplaceFrom" type="text" placeholder="例如: http://host:port/d" class="input-field">
+                  </div>
+                  <div>
+                    <label class="block text-sm text-white/70 mb-2">内容地址替换目标</label>
+                    <input v-model="taskForm.strmUrlReplaceTo" type="text" placeholder="例如: /mnt/...url=" class="input-field">
+                  </div>
+                </div>
+                <p class="text-xs text-white/30">在 Base URL 替换后的 STRM 内容地址中精确替换指定字符串，留空表示不替换</p>
+
+                <label class="flex items-start cursor-pointer">
+                  <input v-model="taskForm.generateSign" type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
+                  <span class="ml-2 text-sm text-white/70">
+                    生成 sign 参数
+                    <span class="block text-xs text-white/40 mt-0.5">在 STRM URL 中追加 sign 查询参数</span>
+                  </span>
+                </label>
               </div>
 
               <div class="space-y-3">
@@ -504,7 +538,10 @@ const taskForm = ref({
   isActive: true,
   minFileSizeBytes: null,
   fileNameExcludeRegex: '',
-  directoryNameExcludeRegex: ''
+  directoryNameExcludeRegex: '',
+  strmUrlReplaceFrom: '',
+  strmUrlReplaceTo: '',
+  generateSign: true
 })
 const strmSubPath = ref('')
 const minFileSizeMb = ref('')
@@ -543,7 +580,8 @@ const resetTaskForm = () => {
   taskForm.value = {
     taskName: '', path: '', strmPath: '/app/backend/strm', cron: '',
     needScrap: false, renameRegex: '', isIncrement: true, isActive: true,
-    minFileSizeBytes: null, fileNameExcludeRegex: '', directoryNameExcludeRegex: ''
+    minFileSizeBytes: null, fileNameExcludeRegex: '', directoryNameExcludeRegex: '',
+    strmUrlReplaceFrom: '', strmUrlReplaceTo: '', generateSign: true
   }
   strmSubPath.value = ''
   minFileSizeMb.value = ''
@@ -558,7 +596,10 @@ const editTask = (task) => {
     renameRegex: toTextValue(task.renameRegex), isIncrement: task.isIncrement, isActive: task.isActive,
     minFileSizeBytes: task.minFileSizeBytes,
     fileNameExcludeRegex: toTextValue(task.fileNameExcludeRegex),
-    directoryNameExcludeRegex: toTextValue(task.directoryNameExcludeRegex)
+    directoryNameExcludeRegex: toTextValue(task.directoryNameExcludeRegex),
+    strmUrlReplaceFrom: toTextValue(task.strmUrlReplaceFrom),
+    strmUrlReplaceTo: toTextValue(task.strmUrlReplaceTo),
+    generateSign: task.generateSign !== false
   }
   const prefix = '/app/backend/strm/'
   strmSubPath.value = task.strmPath?.startsWith(prefix) ? task.strmPath.substring(prefix.length) : ''

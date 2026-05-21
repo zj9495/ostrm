@@ -46,18 +46,19 @@ public class StrmGenerationHandler implements FileProcessorHandler {
       OpenlistConfig openlistConfig = context.getOpenlistConfig();
       boolean isIncrement = Boolean.TRUE.equals(context.getTaskConfig().getIsIncrement());
 
-      // 构建文件 URL 并添加 sign 参数
-      String fileUrlWithSign = buildFileUrlWithSign(currentFile.getUrl(), currentFile.getSign());
-
       // 生成 STRM 文件
       strmFileService.generateStrmFile(
           strmPath,
           relativePath,
           fileName,
-          fileUrlWithSign,
+          currentFile.getUrl(),
           isIncrement,
           renameRegex,
-          openlistConfig);
+          openlistConfig,
+          currentFile.getSign(),
+          context.getTaskConfig().getGenerateSign(),
+          context.getTaskConfig().getStrmUrlReplaceFrom(),
+          context.getTaskConfig().getStrmUrlReplaceTo());
 
       context.getStats().incrementProcessed();
       return FileProcessingResult.success();
@@ -75,21 +76,4 @@ public class StrmGenerationHandler implements FileProcessorHandler {
   }
 
   // ==================== URL 处理 ====================
-
-  /** 构建包含 sign 参数的文件 URL */
-  private String buildFileUrlWithSign(String originalUrl, String sign) {
-    if (originalUrl == null) {
-      return null;
-    }
-
-    String processedUrl = originalUrl;
-
-    // 添加 sign 参数
-    if (sign != null && !sign.trim().isEmpty()) {
-      String separator = processedUrl.contains("?") ? "&" : "?";
-      processedUrl = processedUrl + separator + "sign=" + sign;
-    }
-
-    return processedUrl;
-  }
 }

@@ -424,5 +424,14 @@ public class TaskConfigService {
     if (taskConfig.getDirectoryNameExcludeRegex() == null) {
       taskConfig.setDirectoryNameExcludeRegex("");
     }
+    if (taskConfig.getStrmUrlReplaceFrom() == null) {
+      taskConfig.setStrmUrlReplaceFrom("");
+    }
+    if (taskConfig.getStrmUrlReplaceTo() == null) {
+      taskConfig.setStrmUrlReplaceTo("");
+    }
+    if (taskConfig.getGenerateSign() == null) {
+      taskConfig.setGenerateSign(true);
+    }
   }
 }

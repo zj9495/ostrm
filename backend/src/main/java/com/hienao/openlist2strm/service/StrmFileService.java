@@ -45,6 +45,10 @@ public class StrmFileService {
    * @param forceRegenerate 是否强制重新生成已存在的文件
    * @param renameRegex 重命名正则表达式（可选）
    * @param openlistConfig OpenList配置（用于baseUrl替换）
+   * @param sign 文件签名（可选）
+   * @param generateSign 是否生成sign查询参数
+   * @param strmUrlReplaceFrom STRM 内容地址替换来源字符串
+   * @param strmUrlReplaceTo STRM 内容地址替换目标字符串
    */
   public void generateStrmFile(
       String strmBasePath,
@@ -53,7 +57,11 @@ public class StrmFileService {
       String fileUrl,
       boolean forceRegenerate,
       String renameRegex,
-      OpenlistConfig openlistConfig) {
+      OpenlistConfig openlistConfig,
+      String sign,
+      Boolean generateSign,
+      String strmUrlReplaceFrom,
+      String strmUrlReplaceTo) {
     try {
       // 处理文件名重命名
       String finalFileName = processFileName(fileName, renameRegex);
@@ -61,8 +69,8 @@ public class StrmFileService {
       // 构建STRM文件路径
       Path strmFilePath = buildStrmFilePath(strmBasePath, relativePath, finalFileName);
 
-      // 处理baseUrl替换
-      String processedUrl = processUrlWithBaseUrlReplacement(fileUrl, openlistConfig);
+      // 处理URL：baseUrl替换 -> 任务级内容地址替换 -> sign参数
+      String processedUrl = processUrl(fileUrl, openlistConfig, sign, generateSign, strmUrlReplaceFrom, strmUrlReplaceTo);
 
       // 计算最终写入的URL（考虑编码配置）
       String finalUrl = processedUrl;
@@ -1007,6 +1015,57 @@ public class StrmFileService {
     }
 
     return totalCleanedCount.get();
+  }
+
+  /**
+   * 处理URL：baseUrl替换 -> 任务级内容地址替换 -> sign参数
+   *
+   * @param originalUrl 原始URL
+   * @param openlistConfig OpenList配置
+   * @param sign 文件签名
+   * @param generateSign 是否生成sign查询参数
+   * @param strmUrlReplaceFrom 内容地址替换来源
+   * @param strmUrlReplaceTo 内容地址替换目标
+   * @return 处理后的URL
+   */
+  private String processUrl(
+      String originalUrl,
+      OpenlistConfig openlistConfig,
+      String sign,
+      Boolean generateSign,
+      String strmUrlReplaceFrom,
+      String strmUrlReplaceTo) {
+    // 1. Base URL替换
+    String url = processUrlWithBaseUrlReplacement(originalUrl, openlistConfig);
+
+    // 2. 任务级内容地址替换
+    url = applyTaskUrlReplacement(url, strmUrlReplaceFrom, strmUrlReplaceTo);
+
+    // 3. 按开关追加sign参数
+    if (Boolean.TRUE.equals(generateSign) && sign != null && !sign.trim().isEmpty()) {
+      String separator = url.contains("?") ? "&" : "?";
+      url = url + separator + "sign=" + sign;
+    }
+
+    return url;
+  }
+
+  /**
+   * 应用任务级内容地址替换。
+   *
+   * @param url 原始URL
+   * @param replaceFrom 替换来源字符串
+   * @param replaceTo 替换目标字符串
+   * @return 替换后的URL
+   */
+  private String applyTaskUrlReplacement(String url, String replaceFrom, String replaceTo) {
+    if (!StringUtils.hasText(replaceFrom) || url == null || url.isEmpty()) {
+      return url;
+    }
+
+    String newUrl = url.replace(replaceFrom, replaceTo);
+    log.debug("任务级内容地址替换: {} -> {}", url, newUrl);
+    return newUrl;
   }
 
   /**

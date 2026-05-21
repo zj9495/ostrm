@@ -65,4 +65,13 @@ public class TaskConfigDto {
 
   /** 目录名称排除正则表达式，为空时不启用 */
   @Size(max = 500, message = "目录名称排除正则表达式长度不能超过500个字符") private String directoryNameExcludeRegex;
+
+  /** STRM 内容地址替换来源字符串，为空时不启用 */
+  @Size(max = 500, message = "STRM URL替换来源长度不能超过500个字符") private String strmUrlReplaceFrom;
+
+  /** STRM 内容地址替换目标字符串 */
+  @Size(max = 500, message = "STRM URL替换目标长度不能超过500个字符") private String strmUrlReplaceTo;
+
+  /** 是否生成 sign 查询参数 */
+  private Boolean generateSign;
 }
