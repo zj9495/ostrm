@@ -300,6 +300,57 @@ public class SystemConfigService {
     logConfig.put("reportUsageData", true); // 默认开启使用数据上报
     defaultConfig.put("log", logConfig);
 
+    // Jav 刮削配置
+    Map<String, Object> javScrapingConfig = new HashMap<>();
+
+    // 网络配置
+    Map<String, Object> javNetworkConfig = new HashMap<>();
+    javNetworkConfig.put("proxyServer", ""); // 代理服务器
+    javNetworkConfig.put("timeoutSeconds", 30); // 请求超时时间（秒）
+    javNetworkConfig.put("retry", 3); // 重试次数
+    javNetworkConfig.put(
+        "proxyFree",
+        Map.ofEntries( // 免代理站点
+            Map.entry("javdb", "javdb.com"),
+            Map.entry("javbus", "javbus.com"),
+            Map.entry("javlib", "javlibrary.com"),
+            Map.entry("jav321", "jav321.com"),
+            Map.entry("mgstage", "mgstage.com"),
+            Map.entry("prestige", "prestige-av.com"),
+            Map.entry("fanza", "dmm.co.jp"),
+            Map.entry("airav", "airav.wiki"),
+            Map.entry("avsox", "avsox.click"),
+            Map.entry("fc2", "fc2.com"),
+            Map.entry("fc2ppvdb", "fc2ppvdb.com"),
+            Map.entry("javmenu", "javmenu.com"),
+            Map.entry("dl_getchu", "dl.getchu.com"),
+            Map.entry("gyutto", "gyutto.com")));
+    javScrapingConfig.put("network", javNetworkConfig);
+
+    // 爬虫配置
+    Map<String, Object> javCrawlerConfig = new HashMap<>();
+    javCrawlerConfig.put("selection", Map.of( // 站点选择配置
+        "normal", List.of("airav", "avsox", "javbus", "javdb", "javlib", "jav321", "mgstage", "prestige"),
+        "fc2", List.of("fc2", "avsox", "javdb", "javmenu", "fc2ppvdb"),
+        "cid", List.of("fanza"),
+        "getchu", List.of("dl_getchu"),
+        "gyutto", List.of("gyutto")
+    ));
+    javCrawlerConfig.put("requiredKeys", List.of("cover", "title")); // 必需字段
+    javCrawlerConfig.put("respectSiteAvid", true); // 尊重站点番号
+    javCrawlerConfig.put("useJavdbCover", "fallback"); // javdb 封面策略: fallback, yes, no
+    javCrawlerConfig.put("normalizeActressName", true); // 标准化演员名
+    javScrapingConfig.put("crawler", javCrawlerConfig);
+
+    // 汇总器配置
+    Map<String, Object> javSummarizerConfig = new HashMap<>();
+    javSummarizerConfig.put("nfoTitlePattern", "{num} {title}"); // NFO 标题模式
+    javSummarizerConfig.put("downloadExtraFanarts", false); // 下载剧照
+    javSummarizerConfig.put("coverHighres", true); // 高清封面
+    javScrapingConfig.put("summarizer", javSummarizerConfig);
+
+    defaultConfig.put("javScraping", javScrapingConfig);
+
     return defaultConfig;
   }
 
@@ -356,6 +407,17 @@ public class SystemConfigService {
   public Map<String, Object> getLogConfig() {
     Map<String, Object> systemConfig = getSystemConfig();
     return (Map<String, Object>) systemConfig.getOrDefault("log", new HashMap<>());
+  }
+
+  /**
+   * 获取 Jav 刮削配置
+   *
+   * @return Jav 刮削配置Map
+   */
+  @SuppressWarnings("unchecked")
+  public Map<String, Object> getJavScrapingConfig() {
+    Map<String, Object> systemConfig = getSystemConfig();
+    return (Map<String, Object>) systemConfig.getOrDefault("javScraping", new HashMap<>());
   }
 
   /**

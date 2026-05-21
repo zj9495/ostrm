@@ -23,11 +23,12 @@
         <result column="strm_url_replace_from" property="strmUrlReplaceFrom" jdbcType="VARCHAR"/>
         <result column="strm_url_replace_to" property="strmUrlReplaceTo" jdbcType="VARCHAR"/>
         <result column="generate_sign" property="generateSign" jdbcType="BOOLEAN"/>
+        <result column="scraper_type" property="scraperType" jdbcType="VARCHAR"/>
     </resultMap>
 
     <!-- 基础字段 -->
     <sql id="Base_Column_List">
-        id, task_name, path, openlist_config_id, need_scrap, rename_regex, cron, is_increment, strm_path, last_exec_time, created_at, updated_at, is_active, min_file_size_bytes, file_name_exclude_regex, directory_name_exclude_regex, strm_url_replace_from, strm_url_replace_to, generate_sign
+        id, task_name, path, openlist_config_id, need_scrap, scraper_type, rename_regex, cron, is_increment, strm_path, last_exec_time, created_at, updated_at, is_active, min_file_size_bytes, file_name_exclude_regex, directory_name_exclude_regex, strm_url_replace_from, strm_url_replace_to, generate_sign
     </sql>
 
     <!-- 根据ID查询 -->
@@ -98,6 +99,9 @@
             <if test="needScrap != null">
                 need_scrap,
             </if>
+            <if test="scraperType != null">
+                scraper_type,
+            </if>
             <if test="renameRegex != null">
                 rename_regex,
             </if>
@@ -147,6 +151,9 @@
             </if>
             <if test="needScrap != null">
                 #{needScrap},
+            </if>
+            <if test="scraperType != null">
+                #{scraperType},
             </if>
             <if test="renameRegex != null">
                 #{renameRegex},
@@ -202,6 +209,9 @@
             </if>
             <if test="needScrap != null">
                 need_scrap = #{needScrap},
+            </if>
+            <if test="scraperType != null">
+                scraper_type = #{scraperType},
             </if>
             <if test="renameRegex != null">
                 rename_regex = #{renameRegex},

@@ -47,6 +47,7 @@ dependencies {
     implementation("com.auth0:java-jwt:4.4.0")
     implementation("org.flywaydb:flyway-core:$flywayVersion")
     implementation("com.github.ben-manes.caffeine:caffeine:3.2.0")
+    implementation("org.jsoup:jsoup:1.17.2")
     // SQLite database
     runtimeOnly("org.xerial:sqlite-jdbc:3.47.1.0")
     // MyBatis does not need additional SQLite dialect

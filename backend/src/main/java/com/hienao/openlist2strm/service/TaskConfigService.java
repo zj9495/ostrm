@@ -381,6 +381,13 @@ public class TaskConfigService {
     validateRegex(taskConfig.getFileNameExcludeRegex(), "文件名排除正则表达式");
     validateRegex(taskConfig.getDirectoryNameExcludeRegex(), "目录名称排除正则表达式");
 
+    // 验证刮削器类型
+    if (taskConfig.getScraperType() != null) {
+      if (!"TMDB".equals(taskConfig.getScraperType()) && !"JAV".equals(taskConfig.getScraperType())) {
+        throw new BusinessException("刮削器类型必须是 TMDB 或 JAV");
+      }
+    }
+
     // LOCAL 数据源：验证任务路径是存在的本地目录
     if (taskConfig.getOpenlistConfigId() != null) {
       OpenlistConfig config = openlistConfigService.getById(taskConfig.getOpenlistConfigId());
@@ -443,6 +450,9 @@ public class TaskConfigService {
     }
     if (taskConfig.getGenerateSign() == null) {
       taskConfig.setGenerateSign(true);
+    }
+    if (taskConfig.getScraperType() == null) {
+      taskConfig.setScraperType("TMDB");
     }
   }
 }

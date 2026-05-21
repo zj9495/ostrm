@@ -158,6 +158,9 @@
                 <input type="checkbox" :checked="task.needScrap" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
                 需要刮削
               </label>
+              <span v-if="task.needScrap" class="text-sm text-white/60">
+                刮削器: {{ task.scraperType }}
+              </span>
               <label class="flex items-center text-sm text-white/60">
                 <input type="checkbox" :checked="task.isIncrement" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
                 增量更新
@@ -347,9 +350,18 @@
                       <input v-model="taskForm.needScrap" type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
                       <span class="ml-2 text-sm text-white/70">
                         需要刮削
-                        <span class="block text-xs text-white/40 mt-0.5">启用TMDB刮削功能，生成NFO和封面</span>
+                        <span class="block text-xs text-white/40 mt-0.5">启用在线刮削功能，生成NFO和封面</span>
                       </span>
                     </label>
+
+                    <div v-if="taskForm.needScrap" class="ml-6 space-y-2">
+                      <label class="block text-sm text-white/70">刮削器类型</label>
+                      <select v-model="taskForm.scraperType" class="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white/70 focus:border-blue-500 focus:outline-none">
+                        <option value="TMDB">TMDB</option>
+                        <option value="JAV">JAV</option>
+                      </select>
+                      <span class="block text-xs text-white/40">选择刮削器类型：TMDB 用于普通影视，JAV 用于成人影片</span>
+                    </div>
 
                     <label class="flex items-center cursor-pointer">
                       <input v-model="taskForm.isIncrement" type="checkbox" class="h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
@@ -631,6 +643,7 @@ const taskForm = ref({
   strmPath: '/app/backend/strm',
   cron: '',
   needScrap: false,
+  scraperType: 'TMDB',
   renameRegex: '',
   isIncrement: true,
   isActive: true,
@@ -684,7 +697,7 @@ const fetchTasks = async () => {
 const resetTaskForm = () => {
   taskForm.value = {
     taskName: '', path: '', strmPath: '/app/backend/strm', cron: '',
-    needScrap: false, renameRegex: '', isIncrement: true, isActive: true,
+    needScrap: false, scraperType: 'TMDB', renameRegex: '', isIncrement: true, isActive: true,
     minFileSizeBytes: null, fileNameExcludeRegex: '', directoryNameExcludeRegex: '',
     strmUrlReplaceFrom: '', strmUrlReplaceTo: '', generateSign: true
   }
@@ -698,6 +711,7 @@ const editTask = (task) => {
   taskForm.value = {
     taskName: task.taskName, path: task.path, strmPath: task.strmPath,
     cron: toTextValue(task.cron), needScrap: task.needScrap === true,
+    scraperType: task.scraperType,
     renameRegex: toTextValue(task.renameRegex), isIncrement: task.isIncrement, isActive: task.isActive,
     minFileSizeBytes: task.minFileSizeBytes,
     fileNameExcludeRegex: toTextValue(task.fileNameExcludeRegex),

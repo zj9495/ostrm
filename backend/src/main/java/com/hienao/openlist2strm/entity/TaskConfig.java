@@ -31,6 +31,9 @@ public class TaskConfig {
   /** 是否需要刮削：true-是，false-否 */
   private Boolean needScrap;
 
+  /** 刮削器类型：TMDB-默认，JAV-Jav刮削器 */
+  private String scraperType;
+
   /** 重命名正则表达式，为空时表示不需要重命名 */
   private String renameRegex;
 
