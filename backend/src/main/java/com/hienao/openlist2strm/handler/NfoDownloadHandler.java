@@ -1,6 +1,7 @@
 package com.hienao.openlist2strm.handler;
 
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
+import com.hienao.openlist2strm.service.LocalFileService;
 import com.hienao.openlist2strm.service.MediaScrapingService;
 import com.hienao.openlist2strm.service.OpenlistApiService;
 import java.nio.file.Files;
@@ -36,6 +37,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
 
   private final FilePriorityResolver priorityResolver;
   private final OpenlistApiService openlistApiService;
+  private final LocalFileService localFileService;
   private final MediaScrapingService mediaScrapingService;
 
   // ==================== 接口实现 ====================
@@ -96,9 +98,12 @@ public class NfoDownloadHandler implements FileProcessorHandler {
 
       if (nfoFile != null) {
         // 下载 NFO 文件内容
+        boolean isLocal = "LOCAL".equals(context.getOpenlistConfig().getSourceType());
         byte[] content =
-            openlistApiService.getFileContent(
-                context.getOpenlistConfig(), nfoFile.getOpenlistFile(), false);
+            isLocal
+                ? localFileService.getFileContent(nfoFile.getOpenlistFile().getPath())
+                : openlistApiService.getFileContent(
+                    context.getOpenlistConfig(), nfoFile.getOpenlistFile(), false);
 
         if (content != null && content.length > 0) {
           // 保存到本地

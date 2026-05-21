@@ -1,6 +1,7 @@
 package com.hienao.openlist2strm.handler;
 
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
+import com.hienao.openlist2strm.service.LocalFileService;
 import com.hienao.openlist2strm.service.OpenlistApiService;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +38,7 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
 
   private final FilePriorityResolver priorityResolver;
   private final OpenlistApiService openlistApiService;
+  private final LocalFileService localFileService;
 
   /** 已下载的字幕文件集合（用于防止重复下载） */
   private final Set<String> downloadedSubtitles = new HashSet<>();
@@ -140,18 +142,24 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
         return null;
       }
 
-      // 2. 构建下载URL并进行编码
-      String downloadUrl = subtitleFile.getUrl();
-      if (subtitleFile.getSign() != null && !subtitleFile.getSign().isEmpty()) {
-        downloadUrl = downloadUrl + "?sign=" + subtitleFile.getSign();
-      }
-      // 使用统一的智能编码方法处理中文路径
-      downloadUrl = com.hienao.openlist2strm.util.UrlEncoder.encodeUrlSmart(downloadUrl);
+      // 2. 从数据源下载
+      boolean isLocal = "LOCAL".equals(context.getOpenlistConfig().getSourceType());
+      byte[] content;
+      if (isLocal) {
+        content = localFileService.getFileContent(subtitleFile.getPath());
+      } else {
+        String downloadUrl = subtitleFile.getUrl();
+        if (subtitleFile.getSign() != null && !subtitleFile.getSign().isEmpty()) {
+          downloadUrl = downloadUrl + "?sign=" + subtitleFile.getSign();
+        }
+        // 使用统一的智能编码方法处理中文路径
+        downloadUrl = com.hienao.openlist2strm.util.UrlEncoder.encodeUrlSmart(downloadUrl);
 
-      // 3. 从 OpenList 下载
-      byte[] content =
-          openlistApiService.downloadWithEncodedUrl(
-              context.getOpenlistConfig(), subtitleFile, downloadUrl);
+        // 从 OpenList 下载
+        content =
+            openlistApiService.downloadWithEncodedUrl(
+                context.getOpenlistConfig(), subtitleFile, downloadUrl);
+      }
 
       if (content != null && content.length > 0) {
         // 4. 保存到本地

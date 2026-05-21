@@ -118,44 +118,57 @@
                 <p class="text-xs text-white/40">{{ formatDate(config.createdAt) }}</p>
               </div>
             </div>
-            <span :class="config.isActive ? 'badge-success' : 'badge-neutral'">
-              {{ config.isActive ? '启用' : '禁用' }}
-            </span>
+            <div class="flex items-center gap-2">
+              <span :class="config.sourceType === 'LOCAL' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'" class="px-2 py-0.5 rounded-full text-xs font-medium">
+                {{ config.sourceType === 'LOCAL' ? '本地文件' : 'OpenList' }}
+              </span>
+              <span :class="config.isActive ? 'badge-success' : 'badge-neutral'">
+                {{ config.isActive ? '启用' : '禁用' }}
+              </span>
+            </div>
           </div>
 
           <!-- 配置信息 -->
           <div class="space-y-3 mb-4">
-            <div class="bg-white/5 rounded-lg p-3 border border-white/6">
-              <label class="text-xs font-medium text-white/40 uppercase tracking-wider">Base URL</label>
-              <p class="mt-1 text-sm text-white/80 break-all font-mono">{{ config.baseUrl }}</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
+            <template v-if="config.sourceType === 'LOCAL'">
+              <div class="bg-emerald-500/5 rounded-lg p-3 border border-emerald-500/10">
+                <label class="text-xs font-medium text-emerald-400 uppercase tracking-wider">数据源</label>
+                <p class="mt-1 text-sm text-white/80">本地文件系统</p>
+              </div>
+            </template>
+            <template v-else>
               <div class="bg-white/5 rounded-lg p-3 border border-white/6">
-                <label class="text-xs font-medium text-white/40 uppercase tracking-wider">Base Path</label>
-                <p class="mt-1 text-sm text-white/80 font-mono">{{ config.basePath || '/' }}</p>
+                <label class="text-xs font-medium text-white/40 uppercase tracking-wider">Base URL</label>
+                <p class="mt-1 text-sm text-white/80 break-all font-mono">{{ config.baseUrl }}</p>
               </div>
 
-              <div class="bg-white/5 rounded-lg p-3 border border-white/6">
-                <label class="text-xs font-medium text-white/40 uppercase tracking-wider">URL编码</label>
-                <div class="mt-1 flex items-center gap-1">
-                  <span :class="config.enableUrlEncoding !== false ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-medium">
-                    {{ config.enableUrlEncoding !== false ? '启用' : '禁用' }}
-                  </span>
-                  <svg v-if="config.enableUrlEncoding !== false" class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  <svg v-else class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"></path>
-                  </svg>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white/5 rounded-lg p-3 border border-white/6">
+                  <label class="text-xs font-medium text-white/40 uppercase tracking-wider">Base Path</label>
+                  <p class="mt-1 text-sm text-white/80 font-mono">{{ config.basePath || '/' }}</p>
+                </div>
+
+                <div class="bg-white/5 rounded-lg p-3 border border-white/6">
+                  <label class="text-xs font-medium text-white/40 uppercase tracking-wider">URL编码</label>
+                  <div class="mt-1 flex items-center gap-1">
+                    <span :class="config.enableUrlEncoding !== false ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-medium">
+                      {{ config.enableUrlEncoding !== false ? '启用' : '禁用' }}
+                    </span>
+                    <svg v-if="config.enableUrlEncoding !== false" class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <svg v-else class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"></path>
+                    </svg>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div v-if="config.strmBaseUrl" class="bg-blue-500/5 rounded-lg p-3 border border-blue-500/10">
-              <label class="text-xs font-medium text-blue-400 uppercase tracking-wider">STRM Base URL</label>
-              <p class="mt-1 text-sm text-white/80 break-all font-mono">{{ config.strmBaseUrl }}</p>
-            </div>
+              <div v-if="config.strmBaseUrl" class="bg-blue-500/5 rounded-lg p-3 border border-blue-500/10">
+                <label class="text-xs font-medium text-blue-400 uppercase tracking-wider">STRM Base URL</label>
+                <p class="mt-1 text-sm text-white/80 break-all font-mono">{{ config.strmBaseUrl }}</p>
+              </div>
+            </template>
           </div>
 
           <!-- 操作按钮 -->
@@ -220,27 +233,51 @@
 
             <form @submit.prevent="addConfig" class="space-y-5">
               <div>
-                <label for="baseUrl" class="block text-sm font-medium text-white/70 mb-2">Base URL</label>
-                <input id="baseUrl" v-model="configForm.baseUrl" type="url" required class="input-field" placeholder="https://openlist.example.com" :disabled="formLoading" />
+                <label class="block text-sm font-medium text-white/70 mb-2">数据源类型</label>
+                <div class="grid grid-cols-2 gap-3">
+                  <button type="button" @click="configForm.sourceType = 'OPENLIST'"
+                          :class="configForm.sourceType === 'OPENLIST' ? 'border-blue-500 bg-blue-500/10 text-blue-400' : 'border-white/10 bg-white/5 text-white/60'"
+                          class="p-3 rounded-xl border text-center transition-all">
+                    <div class="text-sm font-medium">OpenList</div>
+                    <div class="text-xs mt-1 opacity-60">远程 OpenList 数据源</div>
+                  </button>
+                  <button type="button" @click="configForm.sourceType = 'LOCAL'"
+                          :class="configForm.sourceType === 'LOCAL' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-white/10 bg-white/5 text-white/60'"
+                          class="p-3 rounded-xl border text-center transition-all">
+                    <div class="text-sm font-medium">本地文件</div>
+                    <div class="text-xs mt-1 opacity-60">容器内挂载的本地目录</div>
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label for="token" class="block text-sm font-medium text-white/70 mb-2">Token</label>
-                <input id="token" v-model="configForm.token" type="password" required class="input-field" placeholder="您的 OpenList Token" :disabled="formLoading" />
-              </div>
+              <template v-if="configForm.sourceType === 'OPENLIST'">
+                <div>
+                  <label for="baseUrl" class="block text-sm font-medium text-white/70 mb-2">Base URL</label>
+                  <input id="baseUrl" v-model="configForm.baseUrl" type="url" required class="input-field" placeholder="https://openlist.example.com" :disabled="formLoading" />
+                </div>
 
-              <div>
-                <label for="strmBaseUrl" class="block text-sm font-medium text-white/70 mb-2">STRM Base URL（可选）</label>
-                <input id="strmBaseUrl" v-model="configForm.strmBaseUrl" type="url" class="input-field" placeholder="https://your-media-server.com/path" :disabled="formLoading" />
-                <p class="mt-1 text-xs text-white/30">用于STRM文件生成时替换原始URL的baseUrl，留空则不进行替换</p>
-              </div>
+                <div>
+                  <label for="token" class="block text-sm font-medium text-white/70 mb-2">Token</label>
+                  <input id="token" v-model="configForm.token" type="password" required class="input-field" placeholder="您的 OpenList Token" :disabled="formLoading" />
+                </div>
 
-              <div class="flex items-start gap-3">
-                <input id="enableUrlEncoding" v-model="configForm.enableUrlEncoding" type="checkbox" class="mt-1" :disabled="formLoading" />
-                <label for="enableUrlEncoding" class="text-sm text-white/70">
-                  <span class="font-medium">启用URL编码</span>
-                  <p class="text-xs text-white/40 mt-0.5">对STRM文件中的链接进行URL编码，确保中文和特殊字符正确显示（推荐启用）</p>
-                </label>
+                <div>
+                  <label for="strmBaseUrl" class="block text-sm font-medium text-white/70 mb-2">STRM Base URL（可选）</label>
+                  <input id="strmBaseUrl" v-model="configForm.strmBaseUrl" type="url" class="input-field" placeholder="https://your-media-server.com/path" :disabled="formLoading" />
+                  <p class="mt-1 text-xs text-white/30">用于STRM文件生成时替换原始URL的baseUrl，留空则不进行替换</p>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <input id="enableUrlEncoding" v-model="configForm.enableUrlEncoding" type="checkbox" class="mt-1" :disabled="formLoading" />
+                  <label for="enableUrlEncoding" class="text-sm text-white/70">
+                    <span class="font-medium">启用URL编码</span>
+                    <p class="text-xs text-white/40 mt-0.5">对STRM文件中的链接进行URL编码，确保中文和特殊字符正确显示（推荐启用）</p>
+                  </label>
+                </div>
+              </template>
+
+              <div v-else class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                <p class="text-sm text-emerald-300">本地文件数据源配置已创建。任务路径将在创建任务时通过目录树选择器指定。</p>
               </div>
 
               <div v-if="formError" class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
@@ -284,27 +321,51 @@
 
             <form @submit.prevent="updateConfig" class="space-y-5">
               <div>
-                <label for="editBaseUrl" class="block text-sm font-medium text-white/70 mb-2">Base URL</label>
-                <input id="editBaseUrl" v-model="configForm.baseUrl" type="url" required class="input-field" placeholder="https://openlist.example.com" :disabled="formLoading" />
+                <label class="block text-sm font-medium text-white/70 mb-2">数据源类型</label>
+                <div class="grid grid-cols-2 gap-3">
+                  <button type="button" @click="configForm.sourceType = 'OPENLIST'"
+                          :class="configForm.sourceType === 'OPENLIST' ? 'border-blue-500 bg-blue-500/10 text-blue-400' : 'border-white/10 bg-white/5 text-white/60'"
+                          class="p-3 rounded-xl border text-center transition-all">
+                    <div class="text-sm font-medium">OpenList</div>
+                    <div class="text-xs mt-1 opacity-60">远程 OpenList 数据源</div>
+                  </button>
+                  <button type="button" @click="configForm.sourceType = 'LOCAL'"
+                          :class="configForm.sourceType === 'LOCAL' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-white/10 bg-white/5 text-white/60'"
+                          class="p-3 rounded-xl border text-center transition-all">
+                    <div class="text-sm font-medium">本地文件</div>
+                    <div class="text-xs mt-1 opacity-60">容器内挂载的本地目录</div>
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label for="editToken" class="block text-sm font-medium text-white/70 mb-2">Token</label>
-                <input id="editToken" v-model="configForm.token" type="password" required class="input-field" placeholder="您的 OpenList Token" :disabled="formLoading" />
-              </div>
+              <template v-if="configForm.sourceType === 'OPENLIST'">
+                <div>
+                  <label for="editBaseUrl" class="block text-sm font-medium text-white/70 mb-2">Base URL</label>
+                  <input id="editBaseUrl" v-model="configForm.baseUrl" type="url" required class="input-field" placeholder="https://openlist.example.com" :disabled="formLoading" />
+                </div>
 
-              <div>
-                <label for="editStrmBaseUrl" class="block text-sm font-medium text-white/70 mb-2">STRM Base URL（可选）</label>
-                <input id="editStrmBaseUrl" v-model="configForm.strmBaseUrl" type="url" class="input-field" placeholder="https://your-media-server.com/path" :disabled="formLoading" />
-                <p class="mt-1 text-xs text-white/30">用于STRM文件生成时替换原始URL的baseUrl，留空则不进行替换</p>
-              </div>
+                <div>
+                  <label for="editToken" class="block text-sm font-medium text-white/70 mb-2">Token</label>
+                  <input id="editToken" v-model="configForm.token" type="password" required class="input-field" placeholder="您的 OpenList Token" :disabled="formLoading" />
+                </div>
 
-              <div class="flex items-start gap-3">
-                <input id="editEnableUrlEncoding" v-model="configForm.enableUrlEncoding" type="checkbox" class="mt-1" :disabled="formLoading" />
-                <label for="editEnableUrlEncoding" class="text-sm text-white/70">
-                  <span class="font-medium">启用URL编码</span>
-                  <p class="text-xs text-white/40 mt-0.5">对STRM文件中的链接进行URL编码，确保中文和特殊字符正确显示（推荐启用）</p>
-                </label>
+                <div>
+                  <label for="editStrmBaseUrl" class="block text-sm font-medium text-white/70 mb-2">STRM Base URL（可选）</label>
+                  <input id="editStrmBaseUrl" v-model="configForm.strmBaseUrl" type="url" class="input-field" placeholder="https://your-media-server.com/path" :disabled="formLoading" />
+                  <p class="mt-1 text-xs text-white/30">用于STRM文件生成时替换原始URL的baseUrl，留空则不进行替换</p>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <input id="editEnableUrlEncoding" v-model="configForm.enableUrlEncoding" type="checkbox" class="mt-1" :disabled="formLoading" />
+                  <label for="editEnableUrlEncoding" class="text-sm text-white/70">
+                    <span class="font-medium">启用URL编码</span>
+                    <p class="text-xs text-white/40 mt-0.5">对STRM文件中的链接进行URL编码，确保中文和特殊字符正确显示（推荐启用）</p>
+                  </label>
+                </div>
+              </template>
+
+              <div v-else class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                <p class="text-sm text-emerald-300">本地文件数据源。任务路径在创建任务时通过目录树选择器指定。</p>
               </div>
 
               <div v-if="formError" class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
@@ -348,7 +409,7 @@ const loading = ref(false)
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const currentConfig = ref(null)
-const configForm = ref({ baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true })
+const configForm = ref({ sourceType: 'OPENLIST', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true })
 const formLoading = ref(false)
 const formError = ref('')
 
@@ -396,10 +457,14 @@ const addConfig = async () => {
   formLoading.value = true
   formError.value = ''
   try {
-    const validationResult = await validateOpenListConfig(configForm.value.baseUrl, configForm.value.token)
+    let body = { ...configForm.value }
+    if (configForm.value.sourceType === 'OPENLIST') {
+      const validationResult = await validateOpenListConfig(configForm.value.baseUrl, configForm.value.token)
+      body = { ...body, ...validationResult }
+    }
     const response = await authenticatedApiCall('/openlist-config', {
       method: 'POST',
-      body: { ...configForm.value, ...validationResult }
+      body
     })
     if (response.code === 200) {
       await getConfigs()
@@ -415,7 +480,13 @@ const addConfig = async () => {
 
 const editConfig = (config) => {
   currentConfig.value = config
-  configForm.value = { baseUrl: config.baseUrl, token: config.token, strmBaseUrl: config.strmBaseUrl || '', enableUrlEncoding: config.enableUrlEncoding !== false }
+  configForm.value = {
+    sourceType: config.sourceType || 'OPENLIST',
+    baseUrl: config.baseUrl || '',
+    token: config.token || '',
+    strmBaseUrl: config.strmBaseUrl || '',
+    enableUrlEncoding: config.enableUrlEncoding !== false
+  }
   showEditModal.value = true
 }
 
@@ -423,10 +494,14 @@ const updateConfig = async () => {
   formLoading.value = true
   formError.value = ''
   try {
-    const validationResult = await validateOpenListConfig(configForm.value.baseUrl, configForm.value.token)
+    let body = { ...configForm.value }
+    if (configForm.value.sourceType === 'OPENLIST') {
+      const validationResult = await validateOpenListConfig(configForm.value.baseUrl, configForm.value.token)
+      body = { ...body, ...validationResult }
+    }
     const response = await authenticatedApiCall(`/openlist-config/${currentConfig.value.id}`, {
       method: 'PUT',
-      body: { ...configForm.value, ...validationResult }
+      body
     })
     if (response.code === 200) {
       await getConfigs()
@@ -441,7 +516,8 @@ const updateConfig = async () => {
 }
 
 const deleteConfig = async (config) => {
-  if (!confirm(`确定要删除用户 "${config.username}" 的配置吗？`)) return
+  const label = config.sourceType === 'LOCAL' ? '本地文件数据源' : `用户 "${config.username}"`
+  if (!confirm(`确定要删除${label}的配置吗？`)) return
   try {
     const response = await authenticatedApiCall(`/openlist-config/${config.id}`, { method: 'DELETE' })
     if (response.code === 200) await getConfigs()
@@ -454,7 +530,8 @@ const deleteConfig = async (config) => {
 
 const toggleConfigStatus = async (config) => {
   const action = config.isActive ? '禁用' : '启用'
-  if (!confirm(`确定要${action}用户 "${config.username}" 的配置吗？`)) return
+  const label = config.sourceType === 'LOCAL' ? '本地文件数据源' : `用户 "${config.username}"`
+  if (!confirm(`确定要${action}${label}的配置吗？`)) return
   try {
     const response = await authenticatedApiCall(`/openlist-config/${config.id}/status`, {
       method: 'PATCH',
@@ -470,7 +547,7 @@ const toggleConfigStatus = async (config) => {
 
 const closeAddModal = () => {
   showAddModal.value = false
-  configForm.value = { baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
+  configForm.value = { sourceType: 'OPENLIST', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
   formError.value = ''
   formLoading.value = false
 }
@@ -478,7 +555,7 @@ const closeAddModal = () => {
 const closeEditModal = () => {
   showEditModal.value = false
   currentConfig.value = null
-  configForm.value = { baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
+  configForm.value = { sourceType: 'OPENLIST', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
   formError.value = ''
   formLoading.value = false
 }

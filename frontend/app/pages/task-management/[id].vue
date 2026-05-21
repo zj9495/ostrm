@@ -32,32 +32,53 @@
         <div class="flex items-center justify-between mb-4">
           <div>
             <h3 class="text-lg leading-6 font-medium text-white">配置信息</h3>
-            <p class="mt-1 max-w-2xl text-sm text-white/40">当前 OpenList 配置详情</p>
+            <p class="mt-1 max-w-2xl text-sm text-white/40">
+              {{ isLocalSource ? '本地文件数据源配置详情' : '当前 OpenList 配置详情' }}
+            </p>
           </div>
-          <span :class="configInfo?.isActive ? 'badge-success' : 'badge-neutral'">
-            {{ configInfo?.isActive ? '启用' : '禁用' }}
-          </span>
+          <div class="flex items-center gap-2">
+            <span :class="isLocalSource ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'" class="px-2 py-0.5 rounded-full text-xs font-medium">
+              {{ isLocalSource ? '本地文件' : 'OpenList' }}
+            </span>
+            <span :class="configInfo?.isActive ? 'badge-success' : 'badge-neutral'">
+              {{ configInfo?.isActive ? '启用' : '禁用' }}
+            </span>
+          </div>
         </div>
 
         <div class="mt-5 border-t border-white/6 pt-5" v-if="configInfo">
-          <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-            <div>
-              <dt class="text-sm text-white/40">用户名</dt>
-              <dd class="mt-1 text-sm text-white">{{ configInfo.username }}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-white/40">Base URL</dt>
-              <dd class="mt-1 text-sm text-white break-all font-mono">{{ configInfo.baseUrl }}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-white/40">Base Path</dt>
-              <dd class="mt-1 text-sm text-white">{{ configInfo.basePath || '/' }}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-white/40">创建时间</dt>
-              <dd class="mt-1 text-sm text-white">{{ formatDate(configInfo.createdAt) }}</dd>
-            </div>
-          </dl>
+          <template v-if="isLocalSource">
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm text-white/40">数据源类型</dt>
+                <dd class="mt-1 text-sm text-white">本地文件系统</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-white/40">创建时间</dt>
+                <dd class="mt-1 text-sm text-white">{{ formatDate(configInfo.createdAt) }}</dd>
+              </div>
+            </dl>
+          </template>
+          <template v-else>
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm text-white/40">用户名</dt>
+                <dd class="mt-1 text-sm text-white">{{ configInfo.username }}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-white/40">Base URL</dt>
+                <dd class="mt-1 text-sm text-white break-all font-mono">{{ configInfo.baseUrl }}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-white/40">Base Path</dt>
+                <dd class="mt-1 text-sm text-white">{{ configInfo.basePath || '/' }}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-white/40">创建时间</dt>
+                <dd class="mt-1 text-sm text-white">{{ formatDate(configInfo.createdAt) }}</dd>
+              </div>
+            </dl>
+          </template>
         </div>
       </div>
 
@@ -226,7 +247,17 @@
 
                   <div>
                     <label class="block text-sm text-white/70 mb-2">任务路径 *</label>
-                    <input v-model="taskForm.path" type="text" required class="input-field" placeholder="请输入OpenList中的媒体路径">
+                    <template v-if="isLocalSource">
+                      <div class="flex gap-2">
+                        <input v-model="taskForm.path" type="text" required class="input-field flex-1" placeholder="点击右侧按钮选择本地目录" readonly>
+                        <button type="button" @click="openLocalTreePicker" class="btn-secondary whitespace-nowrap">
+                          选择目录
+                        </button>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <input v-model="taskForm.path" type="text" required class="input-field" placeholder="请输入OpenList中的媒体路径">
+                    </template>
                   </div>
 
                   <div class="lg:col-span-2">
@@ -498,11 +529,74 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 本地目录树选择器模态框 -->
+    <Teleport to="body">
+      <div v-if="showLocalTreePicker" class="modal-overlay animate-fade-in">
+        <div class="flex items-center justify-center min-h-screen p-4">
+          <div class="modal-content animate-scale-in w-full max-w-lg max-h-[70vh] overflow-hidden flex flex-col" @click.stop>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-xl font-semibold text-white">选择本地目录</h3>
+              <button @click="showLocalTreePicker = false" class="btn-icon">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 面包屑导航 -->
+            <div class="flex items-center gap-1 text-sm text-white/60 mb-3 flex-wrap">
+              <button @click="navigateToLocalBreadcrumb(-1)" class="hover:text-blue-400 transition-colors">根目录</button>
+              <span v-for="(crumb, index) in localTreePath" :key="index" class="flex items-center gap-1">
+                <span class="text-white/30">/</span>
+                <button @click="navigateToLocalBreadcrumb(index)" class="hover:text-blue-400 transition-colors">{{ crumb.name }}</button>
+              </span>
+            </div>
+
+            <div class="flex-1 overflow-y-auto rounded-lg border border-white/10 bg-white/5">
+              <div v-if="localTreeLoading" class="flex justify-center items-center py-12">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+              </div>
+
+              <div v-else-if="localTreeNodes.length === 0" class="text-center py-12 text-white/40">
+                此目录下没有子目录
+              </div>
+
+              <div v-else class="divide-y divide-white/5">
+                <div v-for="node in localTreeNodes" :key="node.path"
+                     class="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <svg class="w-5 h-5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                    </svg>
+                    <span class="text-sm text-white/80 truncate">{{ node.name }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <button v-if="node.hasChildren" @click="navigateIntoLocalDir(node)"
+                            class="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded bg-blue-500/10">
+                      展开
+                    </button>
+                    <button @click="selectLocalPath(node)"
+                            class="text-xs text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded bg-emerald-500/10">
+                      选择
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="taskForm.path" class="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+              <p class="text-sm text-emerald-300">已选择: <span class="font-mono">{{ taskForm.path }}</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import logger from '~/core/utils/logger'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall, authenticatedApiCall } from '~/core/api/client'
@@ -550,6 +644,13 @@ const taskForm = ref({
 const strmSubPath = ref('')
 const minFileSizeMb = ref('')
 const showRenameRegexHelp = ref(false)
+// Local directory tree state
+const localTreeNodes = ref([])
+const localTreePath = ref([])
+const localTreeLoading = ref(false)
+const showLocalTreePicker = ref(false)
+
+const isLocalSource = computed(() => configInfo.value?.sourceType === 'LOCAL')
 
 const getConfigInfo = async () => {
   try {
@@ -614,9 +715,12 @@ const editTask = (task) => {
 const validateTaskPath = async (taskPath) => {
   try {
     if (!configInfo.value) throw new Error('配置信息未加载')
+    const body = isLocalSource.value
+      ? { sourceType: 'LOCAL', taskPath }
+      : { baseUrl: configInfo.value.baseUrl, token: configInfo.value.token, basePath: configInfo.value.basePath, taskPath }
     const response = await authenticatedApiCall('/openlist-config/validate-path', {
       method: 'POST',
-      body: { baseUrl: configInfo.value.baseUrl, token: configInfo.value.token, basePath: configInfo.value.basePath, taskPath }
+      body
     })
     if (response.code !== 200) throw new Error(response.message || '路径验证失败')
   } catch (error) {
@@ -841,6 +945,51 @@ const fetchRunLogs = async (runId) => {
   } finally {
     loadingRunLogs.value = false
   }
+}
+
+// Local directory tree functions
+const openLocalTreePicker = async () => {
+  showLocalTreePicker.value = true
+  localTreePath.value = []
+  await loadLocalTreeNodes(null)
+}
+
+const loadLocalTreeNodes = async (parentPath) => {
+  try {
+    localTreeLoading.value = true
+    const params = parentPath ? `?parentPath=${encodeURIComponent(parentPath)}` : ''
+    const response = await authenticatedApiCall(`/openlist-config/${configId}/local-directory-tree${params}`, { method: 'GET' })
+    if (response.code === 200) {
+      localTreeNodes.value = response.data || []
+    } else {
+      localTreeNodes.value = []
+    }
+  } catch (error) {
+    logger.error('加载目录树失败:', error)
+    localTreeNodes.value = []
+  } finally {
+    localTreeLoading.value = false
+  }
+}
+
+const navigateIntoLocalDir = async (node) => {
+  localTreePath.value.push({ name: node.name, path: node.path })
+  await loadLocalTreeNodes(node.path)
+}
+
+const navigateToLocalBreadcrumb = async (index) => {
+  if (index < 0) {
+    localTreePath.value = []
+    await loadLocalTreeNodes(null)
+  } else {
+    localTreePath.value = localTreePath.value.slice(0, index + 1)
+    await loadLocalTreeNodes(localTreePath.value[index].path)
+  }
+}
+
+const selectLocalPath = (node) => {
+  taskForm.value.path = node.path
+  showLocalTreePicker.value = false
 }
 
 onMounted(() => {

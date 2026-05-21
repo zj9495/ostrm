@@ -4,6 +4,7 @@ import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.entity.TaskConfig;
 import com.hienao.openlist2strm.exception.BusinessException;
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
+import com.hienao.openlist2strm.service.LocalFileService;
 import com.hienao.openlist2strm.service.OpenlistApiService;
 import com.hienao.openlist2strm.service.TaskRunService;
 import java.util.ArrayList;
@@ -33,6 +34,7 @@ import org.springframework.util.StringUtils;
 public class FileDiscoveryHandler implements FileProcessorHandler {
 
   private final OpenlistApiService openlistApiService;
+  private final LocalFileService localFileService;
   private final TaskRunService taskRunService;
 
   // ==================== 接口实现 ====================
@@ -92,8 +94,11 @@ public class FileDiscoveryHandler implements FileProcessorHandler {
       Long taskRunId) {
 
     try {
+      boolean isLocal = "LOCAL".equals(openlistConfig.getSourceType());
       List<OpenlistApiService.OpenlistFile> files =
-          openlistApiService.getDirectoryContents(openlistConfig, path);
+          isLocal
+              ? localFileService.listDirectoryContents(path)
+              : openlistApiService.getDirectoryContents(openlistConfig, path);
 
       for (OpenlistApiService.OpenlistFile file : files) {
         if ("folder".equals(file.getType())

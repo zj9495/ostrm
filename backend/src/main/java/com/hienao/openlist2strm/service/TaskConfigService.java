@@ -1,6 +1,7 @@
 package com.hienao.openlist2strm.service;
 
 import com.hienao.openlist2strm.config.PathConfiguration;
+import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.entity.TaskConfig;
 import com.hienao.openlist2strm.exception.BusinessException;
 import com.hienao.openlist2strm.mapper.TaskConfigMapper;
@@ -31,6 +32,8 @@ public class TaskConfigService {
   private final TaskConfigMapper taskConfigMapper;
   private final QuartzSchedulerService quartzSchedulerService;
   private final PathConfiguration pathConfiguration;
+  private final OpenlistConfigService openlistConfigService;
+  private final LocalFileService localFileService;
 
   /**
    * 根据ID查询任务配置
@@ -377,6 +380,14 @@ public class TaskConfigService {
 
     validateRegex(taskConfig.getFileNameExcludeRegex(), "文件名排除正则表达式");
     validateRegex(taskConfig.getDirectoryNameExcludeRegex(), "目录名称排除正则表达式");
+
+    // LOCAL 数据源：验证任务路径是存在的本地目录
+    if (taskConfig.getOpenlistConfigId() != null) {
+      OpenlistConfig config = openlistConfigService.getById(taskConfig.getOpenlistConfigId());
+      if (config != null && "LOCAL".equals(config.getSourceType())) {
+        localFileService.validateLocalPath(taskConfig.getPath());
+      }
+    }
   }
 
   private void validateRegex(String regex, String fieldName) {

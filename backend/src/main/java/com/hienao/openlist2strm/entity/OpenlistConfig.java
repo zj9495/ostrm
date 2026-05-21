@@ -45,4 +45,7 @@ public class OpenlistConfig {
 
   /** 是否启用URL编码：1-启用（默认），0-禁用 */
   private Boolean enableUrlEncoding;
+
+  /** 数据源类型：OPENLIST-OpenList数据源，LOCAL-本地文件数据源 */
+  private String sourceType;
 }

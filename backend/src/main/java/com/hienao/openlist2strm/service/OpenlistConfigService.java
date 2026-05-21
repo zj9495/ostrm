@@ -114,10 +114,19 @@ public class OpenlistConfigService {
   public OpenlistConfig createConfig(OpenlistConfig config) {
     validateConfig(config);
 
-    // 检查用户名是否已存在
-    OpenlistConfig existingConfig = openlistConfigMapper.selectByUsername(config.getUsername());
-    if (existingConfig != null) {
-      throw new BusinessException("用户名已存在: " + config.getUsername());
+    boolean isLocal = "LOCAL".equals(config.getSourceType());
+
+    if (isLocal) {
+      // LOCAL 配置自动生成唯一用户名
+      if (!StringUtils.hasText(config.getUsername())) {
+        config.setUsername("local_" + System.currentTimeMillis());
+      }
+    } else {
+      // OPENLIST 配置检查用户名是否已存在
+      OpenlistConfig existingConfig = openlistConfigMapper.selectByUsername(config.getUsername());
+      if (existingConfig != null) {
+        throw new BusinessException("用户名已存在: " + config.getUsername());
+      }
     }
 
     // 设置默认值
@@ -128,13 +137,13 @@ public class OpenlistConfigService {
       config.setIsActive(true);
     }
 
-    log.info("创建OpenList配置 - strmBaseUrl: '{}'", config.getStrmBaseUrl());
+    log.info("创建配置 - sourceType: {}, strmBaseUrl: '{}'", config.getSourceType(), config.getStrmBaseUrl());
     int result = openlistConfigMapper.insert(config);
     if (result <= 0) {
       throw new BusinessException("创建配置失败");
     }
 
-    log.info("创建openlist配置成功，用户名: {}, ID: {}", config.getUsername(), config.getId());
+    log.info("创建配置成功，sourceType: {}, 用户名: {}, ID: {}", config.getSourceType(), config.getUsername(), config.getId());
     return config;
   }
 
@@ -160,13 +169,15 @@ public class OpenlistConfigService {
 
     // 记录更新前的配置信息
     log.info(
-        "更新OpenList配置 - ID: {}, 原strmBaseUrl: '{}', 新strmBaseUrl: '{}'",
+        "更新配置 - ID: {}, sourceType: {}, 原strmBaseUrl: '{}', 新strmBaseUrl: '{}'",
         config.getId(),
+        config.getSourceType(),
         existingConfig.getStrmBaseUrl(),
         config.getStrmBaseUrl());
 
-    // 如果更新了用户名，检查是否与其他配置冲突
-    if (StringUtils.hasText(config.getUsername())
+    // 如果更新了用户名且是 OPENLIST 类型，检查是否与其他配置冲突
+    if (!"LOCAL".equals(config.getSourceType())
+        && StringUtils.hasText(config.getUsername())
         && !config.getUsername().equals(existingConfig.getUsername())) {
       OpenlistConfig conflictConfig = openlistConfigMapper.selectByUsername(config.getUsername());
       if (conflictConfig != null && !conflictConfig.getId().equals(config.getId())) {
@@ -244,6 +255,19 @@ public class OpenlistConfigService {
     if (config == null) {
       throw new BusinessException("配置信息不能为空");
     }
+
+    String sourceType = config.getSourceType();
+    if (!StringUtils.hasText(sourceType)) {
+      sourceType = "OPENLIST";
+      config.setSourceType(sourceType);
+    }
+
+    if ("LOCAL".equals(sourceType)) {
+      // LOCAL 配置不需要 OpenList 专属字段
+      return;
+    }
+
+    // OPENLIST 配置校验
     if (!StringUtils.hasText(config.getBaseUrl())) {
       throw new BusinessException("openlist网址不能为空");
     }

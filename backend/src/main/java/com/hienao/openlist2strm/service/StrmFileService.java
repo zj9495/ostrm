@@ -225,6 +225,12 @@ public class StrmFileService {
    * @return 是否应该编码，默认启用编码
    */
   private boolean shouldEncodeUrl(OpenlistConfig openlistConfig) {
+    // 本地模式不进行URL编码
+    if (openlistConfig != null && "LOCAL".equals(openlistConfig.getSourceType())) {
+      log.debug("本地数据源模式，跳过URL编码");
+      return false;
+    }
+
     // 如果配置为空或未设置编码选项，默认启用编码（向后兼容）
     if (openlistConfig == null || openlistConfig.getEnableUrlEncoding() == null) {
       log.debug("URL编码配置为空，默认启用编码");
@@ -1041,8 +1047,9 @@ public class StrmFileService {
     // 2. 任务级内容地址替换
     url = applyTaskUrlReplacement(url, strmUrlReplaceFrom, strmUrlReplaceTo);
 
-    // 3. 按开关追加sign参数
-    if (Boolean.TRUE.equals(generateSign) && sign != null && !sign.trim().isEmpty()) {
+    // 3. 按开关追加sign参数（本地模式不追加sign）
+    boolean isLocal = openlistConfig != null && "LOCAL".equals(openlistConfig.getSourceType());
+    if (!isLocal && Boolean.TRUE.equals(generateSign) && sign != null && !sign.trim().isEmpty()) {
       String separator = url.contains("?") ? "&" : "?";
       url = url + separator + "sign=" + sign;
     }

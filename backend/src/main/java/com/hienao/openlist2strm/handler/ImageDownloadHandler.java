@@ -1,6 +1,7 @@
 package com.hienao.openlist2strm.handler;
 
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
+import com.hienao.openlist2strm.service.LocalFileService;
 import com.hienao.openlist2strm.service.OpenlistApiService;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,6 +36,7 @@ public class ImageDownloadHandler implements FileProcessorHandler {
 
   private final FilePriorityResolver priorityResolver;
   private final OpenlistApiService openlistApiService;
+  private final LocalFileService localFileService;
 
   // 图片文件扩展名
   private static final Set<String> IMAGE_EXTENSIONS =
@@ -115,8 +117,11 @@ public class ImageDownloadHandler implements FileProcessorHandler {
 
     if (openlistImage != null) {
       try {
+        boolean isLocal = "LOCAL".equals(context.getOpenlistConfig().getSourceType());
         byte[] content =
-            openlistApiService.getFileContent(context.getOpenlistConfig(), openlistImage, false);
+            isLocal
+                ? localFileService.getFileContent(openlistImage.getPath())
+                : openlistApiService.getFileContent(context.getOpenlistConfig(), openlistImage, false);
 
         if (content != null && content.length > 0) {
           Files.createDirectories(localPath.getParent());
@@ -215,17 +220,23 @@ public class ImageDownloadHandler implements FileProcessorHandler {
       }
 
       // 构建下载URL并进行编码
-      String downloadUrl = imageFile.getUrl();
-      if (imageFile.getSign() != null && !imageFile.getSign().isEmpty()) {
-        downloadUrl = downloadUrl + "?sign=" + imageFile.getSign();
-      }
-      // 使用统一的智能编码方法处理中文路径
-      downloadUrl = com.hienao.openlist2strm.util.UrlEncoder.encodeUrlSmart(downloadUrl);
+      boolean isLocal = "LOCAL".equals(context.getOpenlistConfig().getSourceType());
+      byte[] content;
+      if (isLocal) {
+        content = localFileService.getFileContent(imageFile.getPath());
+      } else {
+        String downloadUrl = imageFile.getUrl();
+        if (imageFile.getSign() != null && !imageFile.getSign().isEmpty()) {
+          downloadUrl = downloadUrl + "?sign=" + imageFile.getSign();
+        }
+        // 使用统一的智能编码方法处理中文路径
+        downloadUrl = com.hienao.openlist2strm.util.UrlEncoder.encodeUrlSmart(downloadUrl);
 
-      // 从 OpenList 下载
-      byte[] content =
-          openlistApiService.downloadWithEncodedUrl(
-              context.getOpenlistConfig(), imageFile, downloadUrl);
+        // 从 OpenList 下载
+        content =
+            openlistApiService.downloadWithEncodedUrl(
+                context.getOpenlistConfig(), imageFile, downloadUrl);
+      }
 
       if (content != null && content.length > 0) {
         Files.createDirectories(localPath.getParent());
@@ -312,8 +323,11 @@ public class ImageDownloadHandler implements FileProcessorHandler {
 
     if (openlistFile != null) {
       try {
+        boolean isLocal = "LOCAL".equals(context.getOpenlistConfig().getSourceType());
         byte[] content =
-            openlistApiService.getFileContent(context.getOpenlistConfig(), openlistFile, false);
+            isLocal
+                ? localFileService.getFileContent(openlistFile.getPath())
+                : openlistApiService.getFileContent(context.getOpenlistConfig(), openlistFile, false);
 
         if (content != null && content.length > 0) {
           Files.createDirectories(localPath.getParent());

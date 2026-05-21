@@ -1,8 +1,5 @@
-# file-discovery Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change optimize-file-processing-pipeline. Update Purpose after archive.
-## Requirements
 ### Requirement: 递归目录遍历
 
 系统 SHALL 按任务关联配置的数据源类型递归遍历指定目录，收集所有文件和子目录信息：
@@ -45,33 +42,6 @@ TBD - created by archiving change optimize-file-processing-pipeline. Update Purp
 
 ---
 
-### Requirement: OpenList API 调用
-
-系统 SHALL 通过 OpenList 的 `/api/fs/list` 接口获取目录内容：
-
-1. 构建正确的 API 请求 URL
-2. 设置必要的请求头（Authorization）
-3. 发送 POST 请求获取目录列表
-4. 解析 API 响应并转换为内部文件模型
-
-#### Scenario: 构建 API 请求
-- **WHEN** 需要获取目录 `/movies` 的内容
-- **THEN** 系统 SHALL 向 `{baseUrl}/api/fs/list` 发送请求
-
-#### Scenario: 设置请求头
-- **WHEN** 发送 API 请求
-- **THEN** 系统 SHALL 设置 `Content-Type: application/json` 和 `Authorization` 头
-
-#### Scenario: 解析 API 响应
-- **WHEN** OpenList API 返回响应
-- **THEN** 系统 SHALL 解析 JSON 响应并转换为 `OpenlistFile` 对象列表
-
-#### Scenario: 处理 API 错误
-- **WHEN** OpenList API 返回错误
-- **THEN** 系统 SHALL 记录错误日志并继续处理其他目录
-
----
-
 ### Requirement: 文件模型定义
 
 系统 SHALL 定义文件模型来表示数据源中的文件/目录，包含以下属性：
@@ -103,33 +73,7 @@ TBD - created by archiving change optimize-file-processing-pipeline. Update Purp
 - **WHEN** 数据源类型为 `LOCAL`
 - **THEN** 系统 SHALL NOT 为文件模型设置 sign 值
 
----
-
-### Requirement: 内存优化处理
-
-系统 SHALL 使用内存优化策略处理大量文件：
-
-1. 分批处理目录，避免一次性加载所有文件
-2. 视频文件立即处理，不累积在内存中
-3. 处理完一个目录后及时释放内存引用
-
-#### Scenario: 分批处理目录
-- **WHEN** 目录包含大量文件（>1000个）
-- **THEN** 系统 SHALL 分批次获取和处理文件
-
-#### Scenario: 立即处理视频文件
-- **WHEN** 发现视频文件
-- **THEN** 系统 SHALL 立即调用后续处理器处理，不等待目录遍历完成
-
-#### Scenario: 内存使用监控
-- **WHEN** 处理大量文件时
-- **THEN** 系统 SHALL 通过及时释放引用来控制内存使用
-
-#### Scenario: 降级处理
-- **WHEN** 分批处理失败
-- **THEN** 系统 SHALL 降级到原始的全量加载方法
-
----
+## ADDED Requirements
 
 ### Requirement: 本地文件系统目录读取
 

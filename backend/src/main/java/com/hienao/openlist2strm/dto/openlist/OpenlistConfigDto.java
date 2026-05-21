@@ -1,7 +1,5 @@
 package com.hienao.openlist2strm.dto.openlist;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import lombok.Data;
@@ -21,17 +19,17 @@ public class OpenlistConfigDto {
   private Long id;
 
   /** openlist网址 */
-  @NotBlank(message = "openlist网址不能为空") @Pattern(regexp = "^https?://.*", message = "openlist网址格式不正确，必须以http://或https://开头") @Size(max = 500, message = "openlist网址长度不能超过500个字符")
+  @Size(max = 500, message = "openlist网址长度不能超过500个字符")
   private String baseUrl;
 
   /** 用户令牌 */
-  @NotBlank(message = "用户令牌不能为空") @Size(max = 1000, message = "用户令牌长度不能超过1000个字符") private String token;
+  @Size(max = 1000, message = "用户令牌长度不能超过1000个字符") private String token;
 
   /** 初始路径 */
   @Size(max = 500, message = "初始路径长度不能超过500个字符") private String basePath;
 
   /** 用户名 */
-  @NotBlank(message = "用户名不能为空") @Size(max = 200, message = "用户名长度不能超过200个字符") private String username;
+  @Size(max = 200, message = "用户名长度不能超过200个字符") private String username;
 
   /** 创建时间 */
   private LocalDateTime createdAt;
@@ -47,4 +45,7 @@ public class OpenlistConfigDto {
 
   /** 是否启用URL编码：true-启用（默认），false-禁用 */
   private Boolean enableUrlEncoding;
+
+  /** 数据源类型：OPENLIST-OpenList数据源，LOCAL-本地文件数据源 */
+  private String sourceType;
 }

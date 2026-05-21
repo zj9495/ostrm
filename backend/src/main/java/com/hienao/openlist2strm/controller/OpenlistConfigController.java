@@ -21,6 +21,7 @@ package com.hienao.openlist2strm.controller;
 import com.hienao.openlist2strm.dto.ApiResponse;
 import com.hienao.openlist2strm.dto.openlist.OpenlistConfigDto;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
+import com.hienao.openlist2strm.service.LocalFileService;
 import com.hienao.openlist2strm.service.OpenlistApiService;
 import com.hienao.openlist2strm.service.OpenlistConfigService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,6 +53,7 @@ public class OpenlistConfigController {
 
   private final OpenlistConfigService openlistConfigService;
   private final OpenlistApiService openlistApiService;
+  private final LocalFileService localFileService;
 
   /** 查询所有配置 */
   @GetMapping
@@ -164,16 +166,42 @@ public class OpenlistConfigController {
 
   /** 验证任务路径（用于前端创建任务时验证路径是否存在，避免CORS问题） */
   @PostMapping("/validate-path")
-  @Operation(summary = "验证任务路径", description = "验证指定的任务路径在OpenList中是否存在且是目录")
+  @Operation(summary = "验证任务路径", description = "验证指定的任务路径是否存在且是目录，根据数据源类型分别校验")
   public ResponseEntity<ApiResponse<Void>> validatePath(
       @Parameter(description = "验证路径请求", required = true) @RequestBody
           ValidatePathRequest request) {
     try {
-      openlistApiService.validatePath(
-          request.getBaseUrl(), request.getToken(), request.getBasePath(), request.getTaskPath());
+      if ("LOCAL".equals(request.getSourceType())) {
+        localFileService.validateLocalPath(request.getTaskPath());
+      } else {
+        openlistApiService.validatePath(
+            request.getBaseUrl(), request.getToken(), request.getBasePath(), request.getTaskPath());
+      }
       return ResponseEntity.ok(ApiResponse.success(null));
     } catch (Exception e) {
       log.error("验证任务路径失败: {}", e.getMessage());
+      return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
+    }
+  }
+
+  /** 查询本地目录树 */
+  @GetMapping("/{id}/local-directory-tree")
+  @Operation(summary = "查询本地目录树", description = "查询本地文件数据源的目录树结构")
+  public ResponseEntity<ApiResponse<List<LocalFileService.DirectoryNode>>> getLocalDirectoryTree(
+      @Parameter(description = CONFIG_ID_PARAM, required = true) @PathVariable Long id,
+      @Parameter(description = "父目录路径") @RequestParam(required = false) String parentPath) {
+    try {
+      OpenlistConfig config = openlistConfigService.getById(id);
+      if (config == null) {
+        return ResponseEntity.ok(ApiResponse.error(404, "配置不存在"));
+      }
+      if (!"LOCAL".equals(config.getSourceType())) {
+        return ResponseEntity.ok(ApiResponse.error(400, "该配置不是本地文件数据源"));
+      }
+      List<LocalFileService.DirectoryNode> nodes = localFileService.listDirectories(parentPath);
+      return ResponseEntity.ok(ApiResponse.success(nodes));
+    } catch (Exception e) {
+      log.error("查询本地目录树失败: {}", e.getMessage());
       return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
     }
   }
@@ -241,6 +269,7 @@ public class OpenlistConfigController {
     private String token;
     private String basePath;
     private String taskPath;
+    private String sourceType;
 
     public String getBaseUrl() {
       return baseUrl;
@@ -272,6 +301,14 @@ public class OpenlistConfigController {
 
     public void setTaskPath(String taskPath) {
       this.taskPath = taskPath;
+    }
+
+    public String getSourceType() {
+      return sourceType;
+    }
+
+    public void setSourceType(String sourceType) {
+      this.sourceType = sourceType;
     }
   }
 
