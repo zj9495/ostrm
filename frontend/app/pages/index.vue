@@ -250,6 +250,12 @@
                 </div>
               </div>
 
+              <div>
+                <label for="username" class="block text-sm font-medium text-white/70 mb-2">配置名称</label>
+                <input id="username" v-model="configForm.username" type="text" required class="input-field" placeholder="输入配置名称（如：我的媒体库）" :disabled="formLoading" />
+                <p class="mt-1 text-xs text-white/30">用于标识此配置的名称，将在配置列表中显示</p>
+              </div>
+
               <template v-if="configForm.sourceType === 'OPENLIST'">
                 <div>
                   <label for="baseUrl" class="block text-sm font-medium text-white/70 mb-2">Base URL</label>
@@ -338,6 +344,12 @@
                 </div>
               </div>
 
+              <div>
+                <label for="editUsername" class="block text-sm font-medium text-white/70 mb-2">配置名称</label>
+                <input id="editUsername" v-model="configForm.username" type="text" required class="input-field" placeholder="输入配置名称" :disabled="formLoading" />
+                <p class="mt-1 text-xs text-white/30">用于标识此配置的名称</p>
+              </div>
+
               <template v-if="configForm.sourceType === 'OPENLIST'">
                 <div>
                   <label for="editBaseUrl" class="block text-sm font-medium text-white/70 mb-2">Base URL</label>
@@ -409,7 +421,7 @@ const loading = ref(false)
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const currentConfig = ref(null)
-const configForm = ref({ sourceType: 'OPENLIST', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true })
+const configForm = ref({ sourceType: 'OPENLIST', username: '', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true })
 const formLoading = ref(false)
 const formError = ref('')
 
@@ -460,7 +472,7 @@ const addConfig = async () => {
     let body = { ...configForm.value }
     if (configForm.value.sourceType === 'OPENLIST') {
       const validationResult = await validateOpenListConfig(configForm.value.baseUrl, configForm.value.token)
-      body = { ...body, ...validationResult }
+      body = { ...body, basePath: validationResult.basePath }
     }
     const response = await authenticatedApiCall('/openlist-config', {
       method: 'POST',
@@ -482,6 +494,7 @@ const editConfig = (config) => {
   currentConfig.value = config
   configForm.value = {
     sourceType: config.sourceType || 'OPENLIST',
+    username: config.username || '',
     baseUrl: config.baseUrl || '',
     token: config.token || '',
     strmBaseUrl: config.strmBaseUrl || '',
@@ -497,7 +510,7 @@ const updateConfig = async () => {
     let body = { ...configForm.value }
     if (configForm.value.sourceType === 'OPENLIST') {
       const validationResult = await validateOpenListConfig(configForm.value.baseUrl, configForm.value.token)
-      body = { ...body, ...validationResult }
+      body = { ...body, basePath: validationResult.basePath }
     }
     const response = await authenticatedApiCall(`/openlist-config/${currentConfig.value.id}`, {
       method: 'PUT',
@@ -516,8 +529,7 @@ const updateConfig = async () => {
 }
 
 const deleteConfig = async (config) => {
-  const label = config.sourceType === 'LOCAL' ? '本地文件数据源' : `用户 "${config.username}"`
-  if (!confirm(`确定要删除${label}的配置吗？`)) return
+  if (!confirm(`确定要删除配置 "${config.username}" 吗？`)) return
   try {
     const response = await authenticatedApiCall(`/openlist-config/${config.id}`, { method: 'DELETE' })
     if (response.code === 200) await getConfigs()
@@ -530,8 +542,7 @@ const deleteConfig = async (config) => {
 
 const toggleConfigStatus = async (config) => {
   const action = config.isActive ? '禁用' : '启用'
-  const label = config.sourceType === 'LOCAL' ? '本地文件数据源' : `用户 "${config.username}"`
-  if (!confirm(`确定要${action}${label}的配置吗？`)) return
+  if (!confirm(`确定要${action}配置 "${config.username}" 吗？`)) return
   try {
     const response = await authenticatedApiCall(`/openlist-config/${config.id}/status`, {
       method: 'PATCH',
@@ -547,7 +558,7 @@ const toggleConfigStatus = async (config) => {
 
 const closeAddModal = () => {
   showAddModal.value = false
-  configForm.value = { sourceType: 'OPENLIST', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
+  configForm.value = { sourceType: 'OPENLIST', username: '', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
   formError.value = ''
   formLoading.value = false
 }
@@ -555,7 +566,7 @@ const closeAddModal = () => {
 const closeEditModal = () => {
   showEditModal.value = false
   currentConfig.value = null
-  configForm.value = { sourceType: 'OPENLIST', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
+  configForm.value = { sourceType: 'OPENLIST', username: '', baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
   formError.value = ''
   formLoading.value = false
 }

@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: 数据源类型配置字段
 系统 SHALL 在配置中保存数据源类型，并使用明确字段表达不同数据源的必填信息：
@@ -29,8 +29,6 @@
 - **AND** 请求未包含 `baseUrl`、`token`、`basePath` 和本地路径
 - **THEN** 系统 SHALL 接受该请求
 
----
-
 ### Requirement: 数据源配置校验
 系统 SHALL 根据数据源类型执行对应校验：
 
@@ -55,64 +53,6 @@
 - **AND** 请求未提交有效配置名称
 - **THEN** 系统 SHALL 拒绝保存配置
 - **AND** 系统 SHALL NOT 自动生成配置名称
-
----
-
-### Requirement: 本地目录树查询
-系统 SHALL 为本地文件数据源提供目录树级查询接口，用于任务路径选择：
-
-1. 接口 SHALL 按配置 ID 查询本地数据源配置
-2. 接口 SHALL 接收可选父目录路径
-3. 接口 SHALL 返回父目录下一层目录节点
-4. 每个目录节点 SHALL 包含 `name`、`path` 和 `hasChildren`
-5. 接口 SHALL 只返回目录，不返回普通文件
-6. 未提交父目录路径时，接口 SHALL 返回服务端可见的文件系统根节点
-
-#### Scenario: 查询本地文件系统根节点
-- **WHEN** 用户打开 `LOCAL` 配置的任务路径选择器
-- **THEN** 前端 SHALL 请求该配置的本地目录根节点
-- **AND** 系统 SHALL 返回服务端可见的文件系统根节点
-
-#### Scenario: 展开本地目录节点
-- **WHEN** 用户展开目录节点 `/media/movies`
-- **THEN** 前端 SHALL 请求该目录的下一层目录节点
-- **AND** 系统 SHALL 返回 `/media/movies` 下的目录列表
-
-#### Scenario: 查询无效父目录
-- **WHEN** 用户请求的父目录不存在或不是目录
-- **THEN** 系统 SHALL 拒绝该目录树查询
-
----
-
-### Requirement: 任务路径按数据源类型选择与校验
-系统 SHALL 在任务配置中按关联配置的数据源类型处理任务路径：
-
-1. `OPENLIST` 任务路径 SHALL 表示 OpenList 目录路径
-2. `LOCAL` 任务路径 SHALL 表示本地文件系统目录路径
-3. 创建或更新任务时，系统 SHALL 根据关联配置的数据源类型校验任务路径
-4. `LOCAL` 任务路径 SHALL 存在且为目录
-
-#### Scenario: OpenList 任务路径校验
-- **WHEN** 用户为 `OPENLIST` 配置创建任务
-- **AND** 任务路径为 `/movies`
-- **THEN** 系统 SHALL 使用 OpenList 路径校验确认该路径存在且为目录
-
-#### Scenario: 本地任务路径树级选择
-- **WHEN** 用户为 `LOCAL` 配置创建任务
-- **THEN** 前端 SHALL 使用本地目录树选择器填写任务路径
-- **AND** 任务路径 SHALL 为用户选中的本地目录路径
-
-#### Scenario: 本地任务路径保存校验
-- **WHEN** 用户保存 `LOCAL` 任务
-- **AND** 任务路径存在且为目录
-- **THEN** 系统 SHALL 保存任务配置
-
-#### Scenario: 本地任务路径非法
-- **WHEN** 用户保存 `LOCAL` 任务
-- **AND** 任务路径不存在或不是目录
-- **THEN** 系统 SHALL 拒绝保存任务配置
-
----
 
 ### Requirement: 前端数据源感知配置界面
 前端 SHALL 在配置管理和任务配置界面按数据源类型展示对应字段：

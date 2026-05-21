@@ -74,14 +74,14 @@ public class OpenlistConfigService {
   }
 
   /**
-   * 根据用户名查询配置
+   * 根据配置名称查询配置
    *
-   * @param username 用户名
+   * @param username 配置名称
    * @return 配置信息
    */
   public OpenlistConfig getByUsername(String username) {
     if (!StringUtils.hasText(username)) {
-      throw new BusinessException("用户名不能为空");
+      throw new BusinessException("配置名称不能为空");
     }
     return openlistConfigMapper.selectByUsername(username);
   }
@@ -114,19 +114,10 @@ public class OpenlistConfigService {
   public OpenlistConfig createConfig(OpenlistConfig config) {
     validateConfig(config);
 
-    boolean isLocal = "LOCAL".equals(config.getSourceType());
-
-    if (isLocal) {
-      // LOCAL 配置自动生成唯一用户名
-      if (!StringUtils.hasText(config.getUsername())) {
-        config.setUsername("local_" + System.currentTimeMillis());
-      }
-    } else {
-      // OPENLIST 配置检查用户名是否已存在
-      OpenlistConfig existingConfig = openlistConfigMapper.selectByUsername(config.getUsername());
-      if (existingConfig != null) {
-        throw new BusinessException("用户名已存在: " + config.getUsername());
-      }
+    // 检查配置名称是否已存在（对所有类型统一检查）
+    OpenlistConfig existingConfig = openlistConfigMapper.selectByUsername(config.getUsername());
+    if (existingConfig != null) {
+      throw new BusinessException("配置名称已存在: " + config.getUsername());
     }
 
     // 设置默认值
@@ -143,7 +134,7 @@ public class OpenlistConfigService {
       throw new BusinessException("创建配置失败");
     }
 
-    log.info("创建配置成功，sourceType: {}, 用户名: {}, ID: {}", config.getSourceType(), config.getUsername(), config.getId());
+    log.info("创建配置成功，sourceType: {}, 配置名称: {}, ID: {}", config.getSourceType(), config.getUsername(), config.getId());
     return config;
   }
 
@@ -175,13 +166,12 @@ public class OpenlistConfigService {
         existingConfig.getStrmBaseUrl(),
         config.getStrmBaseUrl());
 
-    // 如果更新了用户名且是 OPENLIST 类型，检查是否与其他配置冲突
-    if (!"LOCAL".equals(config.getSourceType())
-        && StringUtils.hasText(config.getUsername())
+    // 如果更新了配置名称，检查是否与其他配置冲突（对所有类型统一检查）
+    if (StringUtils.hasText(config.getUsername())
         && !config.getUsername().equals(existingConfig.getUsername())) {
       OpenlistConfig conflictConfig = openlistConfigMapper.selectByUsername(config.getUsername());
       if (conflictConfig != null && !conflictConfig.getId().equals(config.getId())) {
-        throw new BusinessException("用户名已存在: " + config.getUsername());
+        throw new BusinessException("配置名称已存在: " + config.getUsername());
       }
     }
 
@@ -262,6 +252,11 @@ public class OpenlistConfigService {
       config.setSourceType(sourceType);
     }
 
+    // 所有类型都需要配置名称
+    if (!StringUtils.hasText(config.getUsername())) {
+      throw new BusinessException("配置名称不能为空");
+    }
+
     if ("LOCAL".equals(sourceType)) {
       // LOCAL 配置不需要 OpenList 专属字段
       return;
@@ -273,9 +268,6 @@ public class OpenlistConfigService {
     }
     if (!StringUtils.hasText(config.getToken())) {
       throw new BusinessException("用户令牌不能为空");
-    }
-    if (!StringUtils.hasText(config.getUsername())) {
-      throw new BusinessException("用户名不能为空");
     }
 
     // 验证URL格式

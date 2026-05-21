@@ -87,11 +87,11 @@ public class OpenlistConfigController {
     return ResponseEntity.ok(ApiResponse.success(convertToDto(config)));
   }
 
-  /** 根据用户名查询配置 */
+  /** 根据配置名称查询配置 */
   @GetMapping("/username/{username}")
-  @Operation(summary = "根据用户名查询配置", description = "根据用户名获取OpenList配置")
+  @Operation(summary = "根据配置名称查询配置", description = "根据配置名称获取OpenList配置")
   public ResponseEntity<ApiResponse<OpenlistConfigDto>> getConfigByUsername(
-      @Parameter(description = "用户名", required = true) @PathVariable String username) {
+      @Parameter(description = "配置名称", required = true) @PathVariable String username) {
     OpenlistConfig config = openlistConfigService.getByUsername(username);
     if (config == null) {
       return ResponseEntity.ok(ApiResponse.error(404, "配置不存在"));

@@ -1,5 +1,6 @@
 package com.hienao.openlist2strm.dto.openlist;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import lombok.Data;
@@ -28,8 +29,9 @@ public class OpenlistConfigDto {
   /** 初始路径 */
   @Size(max = 500, message = "初始路径长度不能超过500个字符") private String basePath;
 
-  /** 用户名 */
-  @Size(max = 200, message = "用户名长度不能超过200个字符") private String username;
+  /** 配置名称 */
+  @NotBlank(message = "配置名称不能为空")
+  @Size(max = 200, message = "配置名称长度不能超过200个字符") private String username;
 
   /** 创建时间 */
   private LocalDateTime createdAt;

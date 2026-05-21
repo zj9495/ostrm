@@ -62,7 +62,7 @@
           <template v-else>
             <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
               <div>
-                <dt class="text-sm text-white/40">用户名</dt>
+                <dt class="text-sm text-white/40">配置名称</dt>
                 <dd class="mt-1 text-sm text-white">{{ configInfo.username }}</dd>
               </div>
               <div>
